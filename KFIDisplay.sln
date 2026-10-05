@@ -1,0 +1,30 @@
+﻿
+Microsoft Visual Studio Solution File, Format Version 12.00
+# Visual Studio Version 17
+VisualStudioVersion = 17.12.35527.113
+MinimumVisualStudioVersion = 10.0.40219.1
+Project("{F184B08F-C81C-45F6-A57F-5ABD9991F28F}") = "KFIDisplay", "KFIDisplay.vbproj", "{987B1850-2FF4-49EC-96E0-10317D3C5E18}"
+EndProject
+Project("{54435603-DBB4-11D2-8724-00A0C9A8B90C}") = "KFIDisplaySetup", "KFIDisplaySetup\KFIDisplaySetup.vdproj", "{380612E7-D779-4AF8-80D0-D6AFACCBD0AE}"
+EndProject
+Global
+	GlobalSection(SolutionConfigurationPlatforms) = preSolution
+		Debug|Any CPU = Debug|Any CPU
+		Release|Any CPU = Release|Any CPU
+	EndGlobalSection
+	GlobalSection(ProjectConfigurationPlatforms) = postSolution
+		{987B1850-2FF4-49EC-96E0-10317D3C5E18}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{987B1850-2FF4-49EC-96E0-10317D3C5E18}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{987B1850-2FF4-49EC-96E0-10317D3C5E18}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{987B1850-2FF4-49EC-96E0-10317D3C5E18}.Release|Any CPU.Build.0 = Release|Any CPU
+		{380612E7-D779-4AF8-80D0-D6AFACCBD0AE}.Debug|Any CPU.ActiveCfg = Debug
+		{380612E7-D779-4AF8-80D0-D6AFACCBD0AE}.Debug|Any CPU.Build.0 = Debug
+		{380612E7-D779-4AF8-80D0-D6AFACCBD0AE}.Release|Any CPU.ActiveCfg = Release
+	EndGlobalSection
+	GlobalSection(SolutionProperties) = preSolution
+		HideSolutionNode = FALSE
+	EndGlobalSection
+	GlobalSection(ExtensibilityGlobals) = postSolution
+		SolutionGuid = {2868B9B0-FF98-4E34-B150-E3411EA264D0}
+	EndGlobalSection
+EndGlobal

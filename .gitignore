@@ -1,0 +1,9 @@
+bin/
+obj/
+.vs/
+packages/
+*.user
+KFIDisplaySetup/Debug/
+KFIDisplaySetup/Release/
+# old code with the Wix key and Square token in it; kept locally only
+backup-before-register-tables/

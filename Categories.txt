@@ -1,0 +1,6 @@
+TempField	ID	Category	Enabled	SortOrder	Page	DisplayTime
+	1	Brats/Dogs	1	2	1	30
+	2	Beverages	1	5	2	10
+	3	Sides	1	4	2	30
+	4	Burgers	1	3	1	30
+	5	Comfort Food	1	1	1	30

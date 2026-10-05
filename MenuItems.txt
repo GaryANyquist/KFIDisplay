@@ -1,0 +1,19 @@
+TempField	ID	Category	ItemNumber	Description	Image	Price	Enabled	SortOrder
+	1	Brats/Dogs	Fat Joey	Pizza brat on a toasted bun with pizza sauce and mozzarella cheese. Served with fries or chips	Cheese-Stuffed-Italian-Sausage1-scaled.jpeg	7	1	5
+	2	Brats/Dogs	The Lindskoog	Swedish potato sausage with fried onions and swedish gravy.  Served with fries or chips		7	1	6
+	3	Beverages	Soda	Coke/Diet Code/Mountain Dew/Diet Dew/Sprite/Root Beer		3	1	1
+	4	Beverages	Water			2	1	2
+	5	Burgers	Hamburger	Classic 1/3 pound hamburger with special sauce. Served with chips		7	1	10
+	6	Burgers	Cheeseburger	1/3 pound cheeseburger with chedder, american, or swiss cheese, and special sauce. Served with chips		8	1	11
+	7	Sides	French Fries			5	1	1
+	8	Sides	Pickle Fries	French fries seasoned with a dill pickle seasoning		6	1	2
+	9	Sides	Tots	Seasoned tater tots		6	1	3
+	12	Brats/Dogs	The Sconnie	Original Wisconsin brat with saurkraut.  Served with chips		6	1	8
+	13	Sides	Onion Rings			8	1	4
+	14	Comfort Food	Layered Meatloaf	Meatloaf topped with mashed potatoes, seasoned sour cream, and cheese	Meatloaf-with-Mashed-Potatoes-and-Cheese-7-edited-scaled.jpg	11	1	1
+	15	Comfort Food	Porcupine Meatballs	All beef meatballs with rice in a rich tomato sauce served over mashed potatos	10725_sfs-porcupinemeatballs-9.jpg	9	1	2
+	16	Comfort Food	Swedish Meatballs	Beef and port meatballs seasoned with swedish seasonings in a white gravy served over egg noodles	Swedish-Meatballs-Recipe-Spoonabilities.jpg	10	1	3
+	17	Brats/Dogs	Hot Dog	1/4 pound original Nathans all beef hotdog.  Served with chips	AR-hot-dogs-on-grill-4x3-781197c58d03460bbaa6171e95ddbd6a.jpg	6	1	9
+	18	Comfort Food	Pulled Pork	Pulled pork sandwich with Ebners Backwoods BBQ sauce topped with slaw.  Served with chips	slowcooker-pulled-pork-21.jpg	8	1	4
+	19	Burgers	Pulled Pork	Pulled pork sandwich with Ebners Backwoods BBQ sauce topped with slaw. Served with chips		8	0	11
+	10	Brats/Dogs	Jambalaya	Brat with sausage, ham, shrimp and jambalaya seasonings. Served with fries or chips		8	1	7
