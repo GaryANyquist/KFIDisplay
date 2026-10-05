@@ -196,8 +196,12 @@ Public Class Form1
     ''' most recently opened drawer that is still open is a prepaid event, because the tablet rings
     ''' every menu item up at $0.00 then). The tablet stores money in
     ''' cents. Only items switched on with "Show on menu board" (and not hidden) are shown.
+    ''' A sale-price discount (from Wix, auto_discounts.sale_price, added by kfdisplay-sync setup 07) takes
+    ''' off the difference to the sale price; before 07 is run the column is missing and is left out.
     ''' </summary>
     Private Function MenuBoardSql(ByVal AfterSortOrder As Long) As String
+        Dim SalePrice As String = If(HasSalePriceColumn(),
+            "WHEN d.sale_price IS NOT NULL THEN CASE WHEN i.price > d.sale_price THEN i.price - d.sale_price ELSE 0 END ", "")
         Return "WITH board AS (" &
             " SELECT c.name AS Category, i.name AS ItemNumber, ISNULL(i.description, '') AS Description," &
             "  i.price AS PriceCents, i.out_of_stock AS SoldOut," &
@@ -208,7 +212,7 @@ Public Class Form1
             "  ROW_NUMBER() OVER (ORDER BY c.sort_order, c.name, i.sort_order, i.name) AS SortOrder" &
             " FROM items i JOIN categories c ON c.id = i.category_id" &
             " OUTER APPLY (SELECT MAX(x.OffCents) AS OffCents FROM (" &
-            "    SELECT CASE WHEN d.type = 'percent' THEN ROUND(i.price * d.value / 100.0, 0)" &
+            "    SELECT CASE " & SalePrice & "WHEN d.type = 'percent' THEN ROUND(i.price * d.value / 100.0, 0)" &
             "                WHEN d.value > i.price THEN i.price ELSE d.value END AS OffCents" &
             "    FROM auto_discounts d" &
             "    WHERE d.active = 1" &
@@ -224,6 +228,18 @@ Public Class Form1
             "       THEN CAST(0 AS money)" &
             "       WHEN OffCents > 0 THEN CAST((PriceCents - OffCents) / 100.0 AS money) ELSE CAST(-1 AS money) END AS SalesPrice" &
             " FROM board WHERE SortOrder > " & AfterSortOrder & " ORDER BY SortOrder"
+    End Function
+
+    ''' <summary>True once kfdisplay-sync setup 07 has added auto_discounts.sale_price.</summary>
+    Private Function HasSalePriceColumn() As Boolean
+        Try
+            Dim DS As DataSet = AnnawareData.ReturnRecords(
+                "SELECT CASE WHEN COL_LENGTH('dbo.auto_discounts', 'sale_price') IS NULL THEN 0 ELSE 1 END AS HasIt",
+                New SqlConnection(ConnectionString), "SQL")
+            Return CInt(DS.Tables(0).Rows(0)("HasIt")) = 1
+        Catch ex As Exception
+            Return False
+        End Try
     End Function
 
     Private Sub FillMenu()
