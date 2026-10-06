@@ -214,19 +214,34 @@ Public Class Form1
     End Sub
 
     ''' <summary>
-    ''' Where the photo for an item's image value is on this PC. The tablet sends the photo's file name
+    ''' Where the photo for an item is on this PC. The tablet sends the photo's file name
     ''' (e.g. 5fbd284e-....jpg, the Wix item id), or a tablet path (file:///.../item-photos/x.jpg) for a photo
-    ''' taken or downloaded on the tablet; either way the file is looked for by name in C:\images.
+    ''' taken or downloaded on the tablet; the file is looked for by that name in C:\images. A tablet photo's name
+    ''' changes whenever the tablet downloads it again (it_160-wix-1791315247281.jpg), so if that exact file isn't
+    ''' here, the newest file in C:\images that starts with the item's id and a dash (it_160-...) is used instead.
     ''' </summary>
-    Private Function ItemPhotoPath(ByVal Image As String) As String
+    Private Function ItemPhotoPath(ByVal ItemId As String, ByVal Image As String) As String
         If Image = "" Then Return ""
         Dim Name As String = Image
         Try
             If Image.Contains("://") Then Name = Uri.UnescapeDataString(New Uri(Image).Segments.Last())
         Catch ex As Exception
         End Try
-        Dim Candidate As String = Path.Combine("C:\images",Path.GetFileName(Name))
-        Return If(File.Exists(Candidate), Candidate, "")
+        Dim Candidate As String = Path.Combine("C:\images", Path.GetFileName(Name))
+        If File.Exists(Candidate) Then Return Candidate
+        If ItemId = "" Then Return ""
+        Try
+            Dim Newest As String = ""
+            For Each F As String In Directory.GetFiles("C:\images", ItemId & "-*")
+                Dim Ext As String = Path.GetExtension(F).ToLower()
+                If Ext = ".jpg" OrElse Ext = ".jpeg" OrElse Ext = ".png" OrElse Ext = ".gif" OrElse Ext = ".bmp" Then
+                    If Newest = "" OrElse File.GetLastWriteTime(F) > File.GetLastWriteTime(Newest) Then Newest = F
+                End If
+            Next
+            Return Newest
+        Catch ex As Exception
+            Return ""
+        End Try
     End Function
 
     ''' <summary>
@@ -244,10 +259,10 @@ Public Class Form1
                 Timer2.Interval = 20000
             Else
                 Dim DS As DataSet = AnnawareData.ReturnRecords(
-                    "SELECT name, image FROM items WHERE show_on_menu_board = 1 AND image IS NOT NULL AND image <> '' ORDER BY NEWID()",
+                    "SELECT id, name, image FROM items WHERE show_on_menu_board = 1 AND image IS NOT NULL AND image <> '' ORDER BY NEWID()",
                     New SqlConnection(ConnectionString), "SQL")
                 For Each Row As DataRow In DS.Tables(0).Rows
-                    Dim Photo As String = ItemPhotoPath(Row("image").ToString)
+                    Dim Photo As String = ItemPhotoPath(Row("id").ToString, Row("image").ToString)
                     If Photo <> "" Then
                         ShowPicture(Photo, Row("name").ToString)
                         Exit For
