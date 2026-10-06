@@ -22,7 +22,6 @@ Imports System.ComponentModel
 Public Class Form1
     Public ConnectionString As String = "Data Source=.\SQLEXPRESS;Initial Catalog=KFDisplay;Integrated Security=True"
     Dim SQLConnection As DbConnection
-    Dim SQLCommand As DbCommand
     Dim LastSortSeq As Integer = 0
     Dim DisclaimerCount As Integer = 0
 
@@ -34,148 +33,9 @@ Public Class Form1
         End If
     End Function
 
-    'Sub ToggleWifi(enable As Boolean)
-    '    Try
-    '        ' Create a new process to run netsh command
-    '        Dim SettingsDS As DataSet = AnnawareData.ReturnRecords("SELECT * FROM Settings", SQLConnection, "SQL")
-    '        Dim process As New Process()
-    '        Dim startInfo As New ProcessStartInfo()
-    '        startInfo.FileName = "powershell"
-    '        startInfo.Arguments = If(enable, "enable-netadapter -Name """ & SettingsDS.Tables(0).Rows(0)("InterfaceName").ToString & """ -Confirm:$false", "disable-netadapter -Name """ & SettingsDS.Tables(0).Rows(0)("InterfaceName").ToString & """ -Confirm:$false")
-    '        startInfo.UseShellExecute = False
-    '        startInfo.CreateNoWindow = True
-    '        startInfo.RedirectStandardOutput = True
-    '        startInfo.Verb = "runas" ' Request administrative privileges
-    '        process.StartInfo = startInfo
-
-    '        ' Start the process
-    '        process.Start()
-    '        process.WaitForExit()
-
-    '        'if enabling, wait 10 seconds for wifi to connect
-    '        If enable Then
-    '            System.Threading.Thread.Sleep(10000)
-    '        End If
-    '    Catch ex As Exception
-    '    End Try
-    'End Sub
-
-    Sub UpdateDatabaseSchema()
-        'create the database if it is not there
-        Try
-            SQLConnection = New SqlConnection("Data Source=.\SQLEXPRESS;Initial Catalog=master;Integrated Security=True")
-            SQLConnection.Open()
-            SQLCommand = New SqlCommand("Create database KFDisplay;", SQLConnection)
-            SQLCommand.ExecuteNonQuery()
-            SQLConnection.Close()
-            SQLConnection.Dispose()
-            For delay As Integer = 1 To 5
-                System.Threading.Thread.Sleep(1000)
-            Next
-        Catch ex As Exception
-        End Try
-
-        SQLConnection = New SqlConnection(ConnectionString)
-        SQLConnection.Open()
-
-        'The menu tables (categories, items, modifier_groups, modifier_options, item_modifier_groups,
-        'discounts, auto_discounts, ...) belong to the register tablet, which creates and fills them
-        'through the KFDisplay sync service (C:\Source\kfdisplay-sync). Never create or alter them here:
-        'SQL Server names are case-insensitive, so the old Categories/MenuItems/Discounts setup would
-        'add its columns to the tablet's tables. Only Settings and Gallery are still this app's own.
-
-        'Create Settings table
-        Try
-            SQLCommand = New SqlCommand("CREATE TABLE Settings (TempField INTEGER NULL)", SQLConnection)
-            SQLCommand.ExecuteNonQuery()
-        Catch ex As Exception
-        End Try
-        Try
-            SQLCommand = New SqlCommand("ALTER TABLE Settings ADD ID INTEGER IDENTITY (1,1)", SQLConnection)
-            SQLCommand.ExecuteNonQuery()
-        Catch ex As Exception
-        End Try
-        Try
-            SQLCommand = New SqlCommand("ALTER TABLE Settings ADD LastItemUpdate DATETIME", SQLConnection)
-            SQLCommand.ExecuteNonQuery()
-            SQLCommand = New SqlCommand("INSERT INTO Settings (LastItemUpdate) VALUES ('1/1/2000')", SQLConnection)
-            SQLCommand.ExecuteNonQuery()
-        Catch ex As Exception
-        End Try
-        Try
-            SQLCommand = New SqlCommand("ALTER TABLE Settings ADD LastCategoryUpdate DATETIME", SQLConnection)
-            SQLCommand.ExecuteNonQuery()
-            SQLCommand = New SqlCommand("UPDATE Settings SET LastCategoryUpdate='1/1/2000'", SQLConnection)
-            SQLCommand.ExecuteNonQuery()
-        Catch ex As Exception
-        End Try
-        Try
-            SQLCommand = New SqlCommand("ALTER TABLE Settings ADD LastGalleryUpdate DATETIME", SQLConnection)
-            SQLCommand.ExecuteNonQuery()
-            SQLCommand = New SqlCommand("UPDATE Settings SET LastGalleryUpdate='1/1/2000'", SQLConnection)
-            SQLCommand.ExecuteNonQuery()
-        Catch ex As Exception
-        End Try
-        Try
-            SQLCommand = New SqlCommand("ALTER TABLE Settings ADD InterfaceName NVARCHAR(100)", SQLConnection)
-            SQLCommand.ExecuteNonQuery()
-            SQLCommand = New SqlCommand("UPDATE Settings SET InterfaceName='Wi-Fi'", SQLConnection)
-            SQLCommand.ExecuteNonQuery()
-        Catch ex As Exception
-        End Try
-        Try
-            SQLCommand = New SqlCommand("ALTER TABLE Settings ADD LastDiscountUpdate DATETIME", SQLConnection)
-            SQLCommand.ExecuteNonQuery()
-            SQLCommand = New SqlCommand("UPDATE Settings SET LastDiscountUpdate='1/1/2000'", SQLConnection)
-            SQLCommand.ExecuteNonQuery()
-        Catch ex As Exception
-        End Try
-
-        'Create Gallery table
-        Try
-            SQLCommand = New SqlCommand("CREATE TABLE Gallery (TempField INTEGER NULL)", SQLConnection)
-            SQLCommand.ExecuteNonQuery()
-        Catch ex As Exception
-        End Try
-        Try
-            SQLCommand = New SqlCommand("ALTER TABLE Gallery ADD ID INTEGER IDENTITY (1,1)", SQLConnection)
-            SQLCommand.ExecuteNonQuery()
-        Catch ex As Exception
-        End Try
-        Try
-            SQLCommand = New SqlCommand("ALTER TABLE Gallery ADD WixID NVARCHAR (200) NULL", SQLConnection)
-            SQLCommand.ExecuteNonQuery()
-        Catch ex As Exception
-        End Try
-        Try
-            SQLCommand = New SqlCommand("ALTER TABLE Gallery ADD URL NVARCHAR (500) NULL", SQLConnection)
-            SQLCommand.ExecuteNonQuery()
-        Catch ex As Exception
-        End Try
-        Try
-            SQLCommand = New SqlCommand("ALTER TABLE Gallery ADD Description NVARCHAR (500) NULL", SQLConnection)
-            SQLCommand.ExecuteNonQuery()
-        Catch ex As Exception
-        End Try
-        Try
-            SQLCommand = New SqlCommand("ALTER TABLE Gallery ADD SortOrder Float Default 0", SQLConnection)
-            SQLCommand.ExecuteNonQuery()
-        Catch ex As Exception
-        End Try
-        Try
-            SQLCommand = New SqlCommand("ALTER TABLE Gallery ADD DisplayTime INT Default 30", SQLConnection)
-            SQLCommand.ExecuteNonQuery()
-        Catch ex As Exception
-        End Try
-        Try
-            SQLCommand = New SqlCommand("ALTER TABLE Gallery ADD DeleteFlag INT Default 0", SQLConnection)
-            SQLCommand.ExecuteNonQuery()
-        Catch ex As Exception
-        End Try
-
-        SQLConnection.Close()
-
-    End Sub
+    'The menu tables (categories, items, modifier_groups, ...) belong to the register tablet, which creates
+    'and fills them through the KFDisplay sync service (C:\Source\kfdisplay-sync). This app only reads them;
+    'it no longer has tables of its own (the old Settings and Gallery tables are no longer used, 2026-10-06).
 
     Private Sub Form1_Load(sender As Object, e As EventArgs) Handles Me.Load
         Me.DoubleBuffered = True
@@ -183,7 +43,6 @@ Public Class Form1
             MkDir("c:\KFDisplay")
         Catch ex As Exception
         End Try
-        UpdateDatabaseSchema()
         Timer1_Tick(sender, e)
         Timer2_Tick(sender, e)
     End Sub
@@ -354,30 +213,59 @@ Public Class Form1
         Timer1.Enabled = True
     End Sub
 
+    ''' <summary>
+    ''' Where the photo for an item's image value is on this PC. The tablet sends the photo's file name
+    ''' (e.g. 5fbd284e-....jpg, the Wix item id), or a tablet path (file:///.../item-photos/x.jpg) for a photo
+    ''' taken or downloaded on the tablet; either way the file is looked for by name in C:\images.
+    ''' </summary>
+    Private Function ItemPhotoPath(ByVal Image As String) As String
+        If Image = "" Then Return ""
+        Dim Name As String = Image
+        Try
+            If Image.Contains("://") Then Name = Uri.UnescapeDataString(New Uri(Image).Segments.Last())
+        Catch ex As Exception
+        End Try
+        Dim Candidate As String = Path.Combine("C:\images",Path.GetFileName(Name))
+        Return If(File.Exists(Candidate), Candidate, "")
+    End Function
+
+    ''' <summary>
+    ''' Rotates the big picture through the photos of the items switched on with "Show on menu board"
+    ''' (items.show_on_menu_board = 1), in random order, with the item's name under it. Every 16th turn
+    ''' shows the disclaimer instead.
+    ''' </summary>
     Private Sub Timer2_Tick(sender As Object, e As EventArgs) Handles Timer2.Tick
         Timer2.Enabled = False
         Try
             DisclaimerCount = DisclaimerCount + 1
             If DisclaimerCount > 15 Then
                 DisclaimerCount = 0
-                AdPicture.Image = System.Drawing.Image.FromFile("C:\images\disclaimer.jpg")
-                AdPicture.Refresh()
-                ImageDescription.Text = ""
+                ShowPicture("C:\images\disclaimer.jpg", "")
                 Timer2.Interval = 20000
             Else
-                Dim DS As DataSet = AnnawareData.ReturnRecords("SELECT * FROM Gallery ORDER BY NEWID()", SQLConnection, "SQL")
-                If DS.Tables(0).Rows.Count > 0 Then
-                    If Dir(DS.Tables(0).Rows(0)("Url").ToString) > "" Then
-                        AdPicture.Image = System.Drawing.Image.FromFile(DS.Tables(0).Rows(0)("Url").ToString)
-                        AdPicture.Refresh()
-                        ImageDescription.Text = DS.Tables(0).Rows(0)("Description").ToString
+                Dim DS As DataSet = AnnawareData.ReturnRecords(
+                    "SELECT name, image FROM items WHERE show_on_menu_board = 1 AND image IS NOT NULL AND image <> '' ORDER BY NEWID()",
+                    New SqlConnection(ConnectionString), "SQL")
+                For Each Row As DataRow In DS.Tables(0).Rows
+                    Dim Photo As String = ItemPhotoPath(Row("image").ToString)
+                    If Photo <> "" Then
+                        ShowPicture(Photo, Row("name").ToString)
+                        Exit For
                     End If
-                End If
+                Next
                 Timer2.Interval = 3000
             End If
         Catch ex As Exception
         End Try
         Timer2.Enabled = True
+    End Sub
+
+    Private Sub ShowPicture(ByVal FileName As String, ByVal Caption As String)
+        Dim Previous As Image = AdPicture.Image
+        AdPicture.Image = System.Drawing.Image.FromFile(FileName)
+        AdPicture.Refresh()
+        ImageDescription.Text = Caption
+        If Previous IsNot Nothing Then Previous.Dispose()
     End Sub
 
     'Double-click the picture: view the menu as the tablet sent it (view only).
@@ -423,7 +311,4 @@ Public Class Form1
 
     End Sub
 
-    Private Sub Form1_Closing(sender As Object, e As CancelEventArgs) Handles Me.Closing
-        'ToggleWifi(True)
-    End Sub
 End Class
