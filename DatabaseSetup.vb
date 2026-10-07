@@ -10,11 +10,16 @@ Public Class SetupResult
     Public Connected As Boolean = False
     Public DatabaseCreated As Boolean = False
     Public TablesCreated As New List(Of String)
-    Public LoginCreated As Boolean = False
-    Public LoginName As String = ""
-    ''' <summary>Where the new login's password was written, when the login was created.</summary>
-    Public PasswordFile As String = ""
+    ''' <summary>The SQL logins made just now, and the file holding each one's new password (same order).</summary>
+    Public NewLogins As New List(Of String)
+    Public PasswordFiles As New List(Of String)
     Public Errors As New List(Of String)
+
+    Public ReadOnly Property LoginCreated As Boolean
+        Get
+            Return NewLogins.Count > 0
+        End Get
+    End Property
 
     Public ReadOnly Property Changed As Boolean
         Get
@@ -26,10 +31,9 @@ Public Class SetupResult
         Dim S As New StringBuilder
         If DatabaseCreated Then S.AppendLine("The database did not exist, so it was created.")
         If TablesCreated.Count > 0 Then S.AppendLine("Tables created: " & String.Join(", ", TablesCreated) & ".")
-        If LoginCreated Then
-            S.AppendLine("SQL login '" & LoginName & "' was created for the KFDisplay sync service.")
-            S.AppendLine("Its password is in " & PasswordFile & ". Put the login and password in kfdisplay-sync's .env (KFDISPLAY_USER / KFDISPLAY_PASSWORD), then delete that file.")
-        End If
+        For I As Integer = 0 To NewLogins.Count - 1
+            S.AppendLine("SQL login '" & NewLogins(I) & "' was created. Its password is in " & PasswordFiles(I) & "; follow the instructions in that file, then delete it.")
+        Next
         For Each E As String In Errors
             S.AppendLine("Problem: " & E)
         Next
@@ -209,24 +213,34 @@ CREATE TABLE dbo.order_line_modifiers (
     price_delta  int           NOT NULL DEFAULT 0
 );
 CREATE INDEX idx_linemods_line ON dbo.order_line_modifiers(line_uid);"))
+        ' Not a register table: which ticket lines the Kitchen Display app has ticked off.
+        L.Add(New KeyValuePair(Of String, String)(KitchenTable, "
+CREATE TABLE dbo.kitchen_line_done (
+    line_uid  nvarchar(64) NOT NULL PRIMARY KEY,
+    done_at   datetime2(3) NOT NULL DEFAULT SYSUTCDATETIME()
+);"))
         Return L
     End Function
+
+    Private Const KitchenTable As String = "kitchen_line_done"
+    Public Const DefaultKitchenLogin As String = "kitchen_display"
 
     Private Shared ReadOnly SafeName As New Regex("^[A-Za-z0-9_]{1,100}$")
 
     ''' <param name="ConnectionString">The app's normal connection string; its Initial Catalog is the database to make sure of.
     ''' The same server is connected to (as the same Windows user) to create the database and the login.</param>
-    ''' <param name="SyncLogin">The SQL login for the sync service.</param>
-    ''' <param name="PasswordFolder">Where the new login's password is written.</param>
+    ''' <param name="SyncLogin">The SQL login for the sync service (reads and writes the register tables).</param>
+    ''' <param name="PasswordFolder">Where each new login's password is written.</param>
+    ''' <param name="KitchenLogin">The SQL login for the Kitchen Display app (reads orders and the menu, bumps orders).</param>
     Public Shared Function EnsureReady(ByVal ConnectionString As String,
                                        Optional ByVal SyncLogin As String = DefaultLogin,
-                                       Optional ByVal PasswordFolder As String = "C:\KFDisplay") As SetupResult
+                                       Optional ByVal PasswordFolder As String = "C:\KFDisplay",
+                                       Optional ByVal KitchenLogin As String = DefaultKitchenLogin) As SetupResult
         Dim R As New SetupResult
-        R.LoginName = SyncLogin
         Try
             Dim B As New SqlConnectionStringBuilder(ConnectionString)
             Dim DbName As String = B.InitialCatalog
-            If Not SafeName.IsMatch(DbName) OrElse Not SafeName.IsMatch(SyncLogin) Then
+            If Not SafeName.IsMatch(DbName) OrElse Not SafeName.IsMatch(SyncLogin) OrElse Not SafeName.IsMatch(KitchenLogin) Then
                 R.Errors.Add("The database or login name has characters that are not allowed.")
                 Return R
             End If
@@ -284,13 +298,30 @@ CREATE INDEX idx_linemods_line ON dbo.order_line_modifiers(line_uid);"))
                 Return R
             End Try
 
-            ' 3. the sync service's login and database user, only for a database made just now
+            ' 3. the SQL logins and database users, only for a database made just now
             If R.DatabaseCreated Then
-                Try
-                    EnsureSyncLogin(MasterB.ConnectionString, B.ConnectionString, DbName, SyncLogin, PasswordFolder, R)
-                Catch ex As Exception
-                    R.Errors.Add("Couldn't set up the SQL login " & SyncLogin & ": " & ex.Message)
-                End Try
+                Dim RegisterTables As New List(Of String)
+                For Each T In TableScripts()
+                    If T.Key <> KitchenTable Then RegisterTables.Add(T.Key)
+                Next
+                ' The sync service (kfdisplay-sync): read and write the register tables, nothing else.
+                Dim SyncGrants As New List(Of String)
+                For Each T As String In RegisterTables
+                    SyncGrants.Add("GRANT SELECT, INSERT, UPDATE, DELETE ON dbo." & T & " TO [" & SyncLogin & "]")
+                Next
+                TryLogin(MasterB.ConnectionString, B.ConnectionString, DbName, SyncLogin, PasswordFolder, R,
+                         "SQL login for the kfdisplay-sync service:", "KFDISPLAY_USER", "KFDISPLAY_PASSWORD",
+                         "Put these two lines in kfdisplay-sync's .env", SyncGrants)
+                ' The Kitchen Display app: read the orders and menu, change only the ready / bumped times and its own table.
+                Dim KitchenGrants As New List(Of String)
+                For Each T As String In {"orders", "order_lines", "order_line_modifiers", "items", "categories"}
+                    KitchenGrants.Add("GRANT SELECT ON dbo." & T & " TO [" & KitchenLogin & "]")
+                Next
+                KitchenGrants.Add("GRANT UPDATE (order_up_at, completed_at) ON dbo.orders TO [" & KitchenLogin & "]")
+                KitchenGrants.Add("GRANT SELECT, INSERT, DELETE ON dbo." & KitchenTable & " TO [" & KitchenLogin & "]")
+                TryLogin(MasterB.ConnectionString, B.ConnectionString, DbName, KitchenLogin, PasswordFolder, R,
+                         "SQL login for the Kitchen Display server:", "DB_USER", "DB_PASSWORD",
+                         "Put these two lines in the Kitchen Display's .env", KitchenGrants)
             End If
         Catch ex As Exception
             R.Errors.Add(ex.Message)
@@ -298,8 +329,26 @@ CREATE INDEX idx_linemods_line ON dbo.order_line_modifiers(line_uid);"))
         Return R
     End Function
 
-    Private Shared Sub EnsureSyncLogin(ByVal MasterConn As String, ByVal DbConn As String, ByVal DbName As String,
-                                       ByVal Login As String, ByVal PasswordFolder As String, ByVal R As SetupResult)
+    ''' <summary>EnsureLogin, with a failure for this login reported in the result instead of stopping the others.</summary>
+    Private Shared Sub TryLogin(ByVal MasterConn As String, ByVal DbConn As String, ByVal DbName As String,
+                                ByVal Login As String, ByVal PasswordFolder As String, ByVal R As SetupResult,
+                                ByVal Purpose As String, ByVal UserKey As String, ByVal PasswordKey As String,
+                                ByVal Where As String, ByVal Grants As List(Of String))
+        Try
+            EnsureLogin(MasterConn, DbConn, DbName, Login, PasswordFolder, R, Purpose, UserKey, PasswordKey, Where, Grants)
+        Catch ex As Exception
+            R.Errors.Add("Couldn't set up the SQL login " & Login & ": " & ex.Message)
+        End Try
+    End Sub
+
+    ''' <summary>
+    ''' Creates the login with a random password if it doesn't exist (an existing login and its password are left alone),
+    ''' maps it to a user in the database, and applies the grants.
+    ''' </summary>
+    Private Shared Sub EnsureLogin(ByVal MasterConn As String, ByVal DbConn As String, ByVal DbName As String,
+                                   ByVal Login As String, ByVal PasswordFolder As String, ByVal R As SetupResult,
+                                   ByVal Purpose As String, ByVal UserKey As String, ByVal PasswordKey As String,
+                                   ByVal Where As String, ByVal Grants As List(Of String))
         Using Master As New SqlConnection(MasterConn)
             Master.Open()
             Dim Exists As Boolean
@@ -312,25 +361,25 @@ CREATE INDEX idx_linemods_line ON dbo.order_line_modifiers(line_uid);"))
                 Using Cmd As New SqlCommand("CREATE LOGIN [" & Login & "] WITH PASSWORD = N'" & Password & "', CHECK_POLICY = ON, DEFAULT_DATABASE = [" & DbName & "]", Master)
                     Cmd.ExecuteNonQuery()
                 End Using
-                R.LoginCreated = True
                 Directory.CreateDirectory(PasswordFolder)
-                R.PasswordFile = Path.Combine(PasswordFolder, Login & "-password.txt")
-                File.WriteAllText(R.PasswordFile,
+                Dim PasswordFile As String = Path.Combine(PasswordFolder, Login & "-password.txt")
+                File.WriteAllText(PasswordFile,
                     "Created by KFIDisplay on " & Now.ToString("yyyy-MM-dd HH:mm") & " because the " & DbName & " database was missing." & vbCrLf &
-                    "SQL login for the kfdisplay-sync service:" & vbCrLf &
-                    "KFDISPLAY_USER=" & Login & vbCrLf &
-                    "KFDISPLAY_PASSWORD=" & Password & vbCrLf &
-                    "Put these two lines in kfdisplay-sync's .env, then delete this file." & vbCrLf)
+                    Purpose & vbCrLf &
+                    UserKey & "=" & Login & vbCrLf &
+                    PasswordKey & "=" & Password & vbCrLf &
+                    Where & ", then delete this file." & vbCrLf)
+                R.NewLogins.Add(Login)
+                R.PasswordFiles.Add(PasswordFile)
             End If
         End Using
-        ' The login can read and write the register tables, and nothing else.
         Using Db As New SqlConnection(DbConn)
             Db.Open()
             Using Cmd As New SqlCommand("IF NOT EXISTS (SELECT 1 FROM sys.database_principals WHERE name = N'" & Login & "') CREATE USER [" & Login & "] FOR LOGIN [" & Login & "]", Db)
                 Cmd.ExecuteNonQuery()
             End Using
-            For Each T In TableScripts()
-                Using Cmd As New SqlCommand("GRANT SELECT, INSERT, UPDATE, DELETE ON dbo." & T.Key & " TO [" & Login & "]", Db)
+            For Each Grant As String In Grants
+                Using Cmd As New SqlCommand(Grant, Db)
                     Cmd.ExecuteNonQuery()
                 End Using
             Next
