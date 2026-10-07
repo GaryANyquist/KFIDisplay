@@ -33,6 +33,8 @@ Public Class ServiceStarter
         Try
             If IsListening(Port) Then Return Name & ": already running"
             If Not File.Exists(Script) Then Return Name & ": script not found (" & Script & ")"
+            Dim Installed As String = InstallPackagesIfMissing(Path.GetDirectoryName(Script))
+            If Installed <> "" Then Return Name & ": " & Installed
             Dim Info As New ProcessStartInfo("cmd.exe", "/c """ & Script & """")
             Info.WorkingDirectory = Path.GetDirectoryName(Script)
             Info.UseShellExecute = False
@@ -42,6 +44,29 @@ Public Class ServiceStarter
             Return Name & ": started"
         Catch ex As Exception
             Return Name & ": could not start (" & ex.Message & ")"
+        End Try
+    End Function
+
+    ''' <summary>
+    ''' A Node service folder with no node_modules (a fresh copy from GitHub) can't run: runs "npm install" there first
+    ''' (hidden, up to 5 minutes; needs internet and Node on the PATH). Returns "" when the packages are there or were
+    ''' installed, otherwise the reason the service was not started.
+    ''' </summary>
+    Private Shared Function InstallPackagesIfMissing(ByVal ServiceFolder As String) As String
+        If Directory.Exists(Path.Combine(ServiceFolder, "node_modules")) Then Return ""
+        If Not File.Exists(Path.Combine(ServiceFolder, "package.json")) Then Return ""
+        Try
+            Dim Info As New ProcessStartInfo("cmd.exe", "/c npm install --omit=dev --no-audit --no-fund")
+            Info.WorkingDirectory = ServiceFolder
+            Info.UseShellExecute = False
+            Info.CreateNoWindow = True
+            Using P As Process = Process.Start(Info)
+                If Not P.WaitForExit(300000) Then Return "npm install is still running after 5 minutes, not started"
+                If P.ExitCode <> 0 Then Return "npm install failed (exit code " & P.ExitCode & "), not started"
+            End Using
+            Return ""
+        Catch ex As Exception
+            Return "npm install could not run (" & ex.Message & "), not started"
         End Try
     End Function
 

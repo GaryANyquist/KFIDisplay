@@ -51,16 +51,23 @@ Public Class Form1
 
     ''' <summary>Starts the KFDisplay sync service and the Kitchen Display service if they are not running (see ServiceStarter.vb).</summary>
     Private Sub StartServices()
-        Try
-            Dim Lines As List(Of String) = ServiceStarter.EnsureAllRunning()
-            'Only worth a log line when something had to be started or couldn't be
-            For Each L As String In Lines
-                If Not L.EndsWith("already running") Then
-                    My.Computer.FileSystem.WriteAllText("c:\KFDisplay\log.txt", Now.ToString & Chr(9) & "Services: " & L & vbCrLf, True)
-                End If
-            Next
-        Catch ex As Exception
-        End Try
+        'In the background, so the menu board comes up at once even if this has to install packages or wait for the
+        'Windows permission prompt.
+        System.Threading.Tasks.Task.Run(
+            Sub()
+                Try
+                    Dim Lines As List(Of String) = ServiceStarter.EnsureAllRunning()
+                    'Then the one-time Windows setup (firewall rules, start-at-boot tasks), if anything is missing
+                    Lines.Add(StartupSetup.RunIfNeeded())
+                    'Only worth a log line when something had to be started or couldn't be
+                    For Each L As String In Lines
+                        If L <> "" AndAlso Not L.EndsWith("already running") Then
+                            My.Computer.FileSystem.WriteAllText("c:\KFDisplay\log.txt", Now.ToString & Chr(9) & "Services: " & L & vbCrLf, True)
+                        End If
+                    Next
+                Catch ex As Exception
+                End Try
+            End Sub)
     End Sub
 
     Dim SetupDone As Boolean = False
