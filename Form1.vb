@@ -43,8 +43,36 @@ Public Class Form1
             MkDir("c:\KFDisplay")
         Catch ex As Exception
         End Try
+        RunDatabaseSetup()
         Timer1_Tick(sender, e)
         Timer2_Tick(sender, e)
+    End Sub
+
+    Dim SetupDone As Boolean = False
+
+    ''' <summary>
+    ''' If the KFDisplay database (or one of the register tables) is missing, creates it, with a SQL login for the
+    ''' sync service (see DatabaseSetup.vb). Runs when the app starts and again every few seconds until SQL Server
+    ''' answers (it may still be starting when the PC boots). Never stops the app; problems go to the log and the red label.
+    ''' </summary>
+    Private Sub RunDatabaseSetup()
+        If SetupDone Then Exit Sub
+        Try
+            Dim R As SetupResult = DatabaseSetup.EnsureReady(ConnectionString)
+            If Not R.Connected Then Exit Sub 'SQL Server isn't answering yet: try again on the next tick
+            SetupDone = True
+            If R.Changed OrElse R.Errors.Count > 0 Then
+                My.Computer.FileSystem.WriteAllText("c:\KFDisplay\log.txt", Now.ToString & Chr(9) & "Database setup: " & R.Summary().Replace(vbCrLf, " | ") & vbCrLf, True)
+                If R.Errors.Count > 0 Then ErrorLabel.Text = "Setup: " & R.Errors(0)
+                MessageBox.Show(R.Summary(), "KFIDisplay: database setup", MessageBoxButtons.OK,
+                                If(R.Errors.Count > 0, MessageBoxIcon.Warning, MessageBoxIcon.Information))
+            End If
+        Catch ex As Exception
+            Try
+                My.Computer.FileSystem.WriteAllText("c:\KFDisplay\log.txt", Now.ToString & Chr(9) & "Error on database setup: " & ex.Message & vbCrLf, True)
+            Catch
+            End Try
+        End Try
     End Sub
 
     ''' <summary>
@@ -209,6 +237,7 @@ Public Class Form1
     End Sub
     Private Sub Timer1_Tick(sender As Object, e As EventArgs) Handles Timer1.Tick
         Timer1.Enabled = False
+        RunDatabaseSetup()
         FillMenu()
         Timer1.Enabled = True
     End Sub
