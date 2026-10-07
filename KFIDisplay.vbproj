@@ -114,6 +114,7 @@
   </ItemGroup>
   <ItemGroup>
     <Compile Include="DatabaseSetup.vb" />
+    <Compile Include="ServiceStarter.vb" />
     <Compile Include="Form1.vb">
       <SubType>Form</SubType>
     </Compile>

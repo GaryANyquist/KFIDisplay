@@ -44,8 +44,23 @@ Public Class Form1
         Catch ex As Exception
         End Try
         RunDatabaseSetup()
+        StartServices()
         Timer1_Tick(sender, e)
         Timer2_Tick(sender, e)
+    End Sub
+
+    ''' <summary>Starts the KFDisplay sync service and the Kitchen Display service if they are not running (see ServiceStarter.vb).</summary>
+    Private Sub StartServices()
+        Try
+            Dim Lines As List(Of String) = ServiceStarter.EnsureAllRunning()
+            'Only worth a log line when something had to be started or couldn't be
+            For Each L As String In Lines
+                If Not L.EndsWith("already running") Then
+                    My.Computer.FileSystem.WriteAllText("c:\KFDisplay\log.txt", Now.ToString & Chr(9) & "Services: " & L & vbCrLf, True)
+                End If
+            Next
+        Catch ex As Exception
+        End Try
     End Sub
 
     Dim SetupDone As Boolean = False
