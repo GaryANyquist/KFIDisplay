@@ -5,10 +5,10 @@ Imports System.IO
 ''' Where the KFDisplay database is (Gary, 2026-10-22: KFIDisplay can run on its own PC, with SQL Server and the
 ''' sync service on another). Read from C:\KFDisplay\display.ini, a plain key=value file:
 '''
-'''   SqlServer=TRUCKSQL,1433          the SQL Server PC (name or address) and port
+'''   SqlServer=SQLPC,1433          the SQL Server PC (name or address) and port
 '''   SqlUser=kfidisplay_read          the read-only login from kfdisplay-sync setup\08-display-login.sql
 '''   SqlPassword=...
-'''   SyncAddress=http://TRUCKSQL:8787  the sync service on that PC, which photos are copied from
+'''   SyncAddress=http://SQLPC:8787  the sync service on that PC, which photos are copied from
 '''   DisplayKey=...                   DISPLAY_KEY from that sync service's .env
 '''
 ''' Without the file (or with SqlServer empty) everything is on this PC, as before: the local SQL Server with
@@ -61,7 +61,7 @@ Public Class DisplaySettings
         Return B.ConnectionString
     End Function
 
-    ''' <summary>The sync service to copy photos from ("http://TRUCKSQL:8787"), or "" when not set.</summary>
+    ''' <summary>The sync service to copy photos from ("http://SQLPC:8787"), or "" when not set.</summary>
     Public Shared ReadOnly Property SyncAddress As String
         Get
             Dim A As String = Value("SyncAddress").TrimEnd("/"c)

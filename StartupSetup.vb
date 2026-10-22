@@ -34,7 +34,7 @@ New-Item -ItemType Directory -Force -Path $folder | Out-Null
 function Log([string]$m) { $line = '{0} {1}' -f (Get-Date -Format 's'), $m; Add-Content -Path $logFile -Value $line; Write-Host $line }
 $ok = $true
 
-# The tablets reach the sync service (8787) over the truck's Wi-Fi.
+# The tablets reach the sync service (8787) over the local Wi-Fi.
 $rules = @(
     @{ Name = 'KFDisplay sync'; Port = 8787 }
 )
