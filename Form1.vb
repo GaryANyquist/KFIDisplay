@@ -20,7 +20,8 @@ Imports System.ComponentModel
 
 
 Public Class Form1
-    Public ConnectionString As String = "Data Source=.\SQLEXPRESS;Initial Catalog=KFDisplay;Integrated Security=True"
+    'This PC's SQL Server, or the one named in C:\KFDisplay\display.ini when KFIDisplay runs on its own PC.
+    Public ConnectionString As String = DisplaySettings.ConnectionString()
     Dim SQLConnection As DbConnection
     Dim LastSortSeq As Integer = 0
     Dim DisclaimerCount As Integer = 0
@@ -43,8 +44,13 @@ Public Class Form1
             MkDir("c:\KFDisplay")
         Catch ex As Exception
         End Try
-        RunDatabaseSetup()
-        StartServices()
+        If DisplaySettings.IsRemote Then
+            'SQL Server and the services run on the other PC, which sets them up; this one only reads and copies photos.
+            PhotoCopier.Start()
+        Else
+            RunDatabaseSetup()
+            StartServices()
+        End If
         Timer1_Tick(sender, e)
         Timer2_Tick(sender, e)
     End Sub
@@ -78,7 +84,7 @@ Public Class Form1
     ''' answers (it may still be starting when the PC boots). Never stops the app; problems go to the log and the red label.
     ''' </summary>
     Private Sub RunDatabaseSetup()
-        If SetupDone Then Exit Sub
+        If SetupDone OrElse DisplaySettings.IsRemote Then Exit Sub
         Try
             Dim R As SetupResult = DatabaseSetup.EnsureReady(ConnectionString)
             If Not R.Connected Then Exit Sub 'SQL Server isn't answering yet: try again on the next tick
@@ -111,12 +117,17 @@ Public Class Form1
     Private Function MenuBoardSql(ByVal AfterSortOrder As Long) As String
         Dim SalePrice As String = If(HasSalePriceColumn(),
             "WHEN d.sale_price IS NOT NULL THEN CASE WHEN i.price > d.sale_price THEN i.price - d.sale_price ELSE 0 END ", "")
+        'Sizes as item variants (register 2.4.8+, synced by kfdisplay-sync setup 10): the dearest size is the second price.
+        Dim TopVariant As String = If(HasVariantsTable(),
+            "  ISNULL((SELECT MAX(v.price) FROM item_variants v WHERE v.item_id = i.id), 0) AS TopVariantCents,",
+            "  0 AS TopVariantCents,")
         Return "WITH board AS (" &
             " SELECT c.name AS Category, i.name AS ItemNumber, ISNULL(i.description, '') AS Description," &
             "  i.price AS PriceCents, i.out_of_stock AS SoldOut," &
             "  ISNULL((SELECT MAX(o.price_delta) FROM item_modifier_groups l" &
             "    JOIN modifier_groups g ON g.id = l.group_id JOIN modifier_options o ON o.group_id = g.id" &
             "    WHERE l.item_id = i.id AND g.required = 1 AND g.multi_select = 0), 0) AS SizeUpCents," &
+            TopVariant &
             "  ISNULL(disc.OffCents, 0) AS OffCents," &
             "  ROW_NUMBER() OVER (ORDER BY c.sort_order, c.name, i.sort_order, i.name) AS SortOrder" &
             " FROM items i JOIN categories c ON c.id = i.category_id" &
@@ -131,12 +142,25 @@ Public Class Form1
             "        AND ((t.target_type = 'item' AND t.target_id = i.id) OR (t.target_type = 'category' AND t.target_id = i.category_id)))) x) disc" &
             " WHERE i.show_on_menu_board = 1 AND i.archived = 0)" &
             " SELECT Category, ItemNumber, Description, CAST(PriceCents / 100.0 AS money) AS Price," &
-            "  CASE WHEN SizeUpCents > 0 THEN CAST((PriceCents + SizeUpCents) / 100.0 AS money) ELSE NULL END AS Price2," &
+            "  CASE WHEN TopVariantCents > PriceCents THEN CAST(TopVariantCents / 100.0 AS money)" &
+            "       WHEN SizeUpCents > 0 THEN CAST((PriceCents + SizeUpCents) / 100.0 AS money) ELSE NULL END AS Price2," &
             "  SoldOut, SortOrder," &
             "  CASE WHEN EXISTS (SELECT 1 FROM (SELECT TOP 1 prepaid FROM shifts WHERE closed_at IS NULL ORDER BY opened_at DESC) s WHERE s.prepaid = 1)" &
             "       THEN CAST(0 AS money)" &
             "       WHEN OffCents > 0 THEN CAST((PriceCents - OffCents) / 100.0 AS money) ELSE CAST(-1 AS money) END AS SalesPrice" &
             " FROM board WHERE SortOrder > " & AfterSortOrder & " ORDER BY SortOrder"
+    End Function
+
+    ''' <summary>True once the item_variants table is there (kfdisplay-sync setup 10, or KFIDisplay 2.0.8's own setup).</summary>
+    Private Function HasVariantsTable() As Boolean
+        Try
+            Dim DS As DataSet = AnnawareData.ReturnRecords(
+                "SELECT CASE WHEN OBJECT_ID(N'dbo.item_variants', N'U') IS NULL THEN 0 ELSE 1 END AS HasIt",
+                New SqlConnection(ConnectionString), "SQL")
+            Return CInt(DS.Tables(0).Rows(0)("HasIt")) = 1
+        Catch ex As Exception
+            Return False
+        End Try
     End Function
 
     ''' <summary>True once kfdisplay-sync setup 07 has added auto_discounts.sale_price.</summary>

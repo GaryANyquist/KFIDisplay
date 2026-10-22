@@ -10,6 +10,8 @@ Public Class SetupResult
     Public Connected As Boolean = False
     Public DatabaseCreated As Boolean = False
     Public TablesCreated As New List(Of String)
+    ''' <summary>Columns added to tables that were already there ("items.hide_on_kiosk").</summary>
+    Public ColumnsAdded As New List(Of String)
     ''' <summary>The SQL logins made just now, and the file holding each one's new password (same order).</summary>
     Public NewLogins As New List(Of String)
     Public PasswordFiles As New List(Of String)
@@ -23,7 +25,7 @@ Public Class SetupResult
 
     Public ReadOnly Property Changed As Boolean
         Get
-            Return DatabaseCreated OrElse TablesCreated.Count > 0 OrElse LoginCreated
+            Return DatabaseCreated OrElse TablesCreated.Count > 0 OrElse ColumnsAdded.Count > 0 OrElse LoginCreated
         End Get
     End Property
 
@@ -31,6 +33,7 @@ Public Class SetupResult
         Dim S As New StringBuilder
         If DatabaseCreated Then S.AppendLine("The database did not exist, so it was created.")
         If TablesCreated.Count > 0 Then S.AppendLine("Tables created: " & String.Join(", ", TablesCreated) & ".")
+        If ColumnsAdded.Count > 0 Then S.AppendLine("Columns added: " & String.Join(", ", ColumnsAdded) & ".")
         For I As Integer = 0 To NewLogins.Count - 1
             S.AppendLine("SQL login '" & NewLogins(I) & "' was created. Its password is in " & PasswordFiles(I) & "; follow the instructions in that file, then delete it.")
         Next
@@ -44,8 +47,8 @@ End Class
 ''' <summary>
 ''' Makes sure the KFDisplay database is there when KFIDisplay starts. If the database is missing it is created
 ''' with the register tablet's tables and a SQL login for the sync service (kfdisplay-sync) that can read and
-''' write only those tables. If the database exists, any missing table is added. Existing tables, rows, logins
-''' and passwords are never changed or dropped. The tables are the ones in kfdisplay-sync\setup\02-replace-schema.sql
+''' write only those tables. If the database exists, any missing table or column is added (and the sync login may
+''' use a new table). Existing rows, logins and passwords are never changed or dropped. The tables are the ones in kfdisplay-sync\setup\02-replace-schema.sql
 ''' (money is integer cents, times are UTC); the tablet fills them through the sync service.
 ''' </summary>
 Public Class DatabaseSetup
@@ -77,9 +80,21 @@ CREATE TABLE dbo.items (
     show_on_menu_board  int           NOT NULL DEFAULT 0,
     out_of_stock        int           NOT NULL DEFAULT 0,
     description         nvarchar(1000) NULL,
+    hide_on_kiosk       int           NOT NULL DEFAULT 0,
+    allow_modifier_split int          NOT NULL DEFAULT 0,
     synced_at           datetime2(3)  NOT NULL DEFAULT SYSUTCDATETIME()
 );
 CREATE INDEX idx_items_category ON dbo.items(category_id);"))
+        ' An item's sizes, each with its own price (the register's Wix price variants).
+        L.Add(New KeyValuePair(Of String, String)("item_variants", "
+CREATE TABLE dbo.item_variants (
+    id          nvarchar(128) NOT NULL PRIMARY KEY,
+    item_id     nvarchar(64)  NOT NULL,
+    name        nvarchar(200) NOT NULL,
+    price       int           NOT NULL,
+    sort_order  int           NOT NULL DEFAULT 0
+);
+CREATE INDEX idx_item_variants_item ON dbo.item_variants(item_id);"))
         L.Add(New KeyValuePair(Of String, String)("modifier_groups", "
 CREATE TABLE dbo.modifier_groups (
     id            nvarchar(64)  NOT NULL PRIMARY KEY,
@@ -87,6 +102,8 @@ CREATE TABLE dbo.modifier_groups (
     required      int           NOT NULL DEFAULT 0,
     multi_select  int           NOT NULL DEFAULT 1,
     sort_order    int           NOT NULL DEFAULT 0,
+    min_select    int           NOT NULL DEFAULT 0,
+    max_select    int           NOT NULL DEFAULT 0,
     synced_at     datetime2(3)  NOT NULL DEFAULT SYSUTCDATETIME()
 );"))
         L.Add(New KeyValuePair(Of String, String)("modifier_options", "
@@ -210,9 +227,28 @@ CREATE TABLE dbo.order_line_modifiers (
     group_name   nvarchar(200) NOT NULL,
     option_id    nvarchar(64)  NOT NULL,
     option_name  nvarchar(200) NOT NULL,
-    price_delta  int           NOT NULL DEFAULT 0
+    price_delta  int           NOT NULL DEFAULT 0,
+    half         int           NOT NULL DEFAULT 0
 );
 CREATE INDEX idx_linemods_line ON dbo.order_line_modifiers(line_uid);"))
+        ' Each register's settings (as JSON; keys and passwords never leave the tablet) and its Wix id records.
+        L.Add(New KeyValuePair(Of String, String)("register_settings", "
+CREATE TABLE dbo.register_settings (
+    register_id    nvarchar(64)  NOT NULL PRIMARY KEY,
+    register_name  nvarchar(50)  NULL,
+    settings       nvarchar(max) NOT NULL,
+    synced_at      datetime2(3)  NOT NULL DEFAULT SYSUTCDATETIME()
+);"))
+        L.Add(New KeyValuePair(Of String, String)("register_wix_links", "
+CREATE TABLE dbo.register_wix_links (
+    id           int IDENTITY(1,1) NOT NULL PRIMARY KEY,
+    register_id  nvarchar(64)   NOT NULL,
+    kind         nvarchar(20)   NOT NULL,
+    wix_id       nvarchar(200)  NOT NULL,
+    local_id     nvarchar(64)   NOT NULL,
+    image_url    nvarchar(1000) NULL
+);
+CREATE INDEX idx_wix_links_register ON dbo.register_wix_links(register_id);"))
         ' Not a register table: which ticket lines the Kitchen Display app has ticked off.
         L.Add(New KeyValuePair(Of String, String)(KitchenTable, "
 CREATE TABLE dbo.kitchen_line_done (
@@ -220,6 +256,17 @@ CREATE TABLE dbo.kitchen_line_done (
     done_at   datetime2(3) NOT NULL DEFAULT SYSUTCDATETIME()
 );"))
         Return L
+    End Function
+
+    ''' <summary>(table, column, its definition): added to a table made before the column existed.</summary>
+    Private Shared Function ColumnScripts() As List(Of String())
+        Return New List(Of String()) From {
+            New String() {"items", "hide_on_kiosk", "int NOT NULL DEFAULT 0"},
+            New String() {"items", "allow_modifier_split", "int NOT NULL DEFAULT 0"},
+            New String() {"modifier_groups", "min_select", "int NOT NULL DEFAULT 0"},
+            New String() {"modifier_groups", "max_select", "int NOT NULL DEFAULT 0"},
+            New String() {"order_line_modifiers", "half", "int NOT NULL DEFAULT 0"}
+        }
     End Function
 
     Private Const KitchenTable As String = "kitchen_line_done"
@@ -289,11 +336,43 @@ CREATE TABLE dbo.kitchen_line_done (
                                 End If
                             End Using
                         Next
+                        ' Columns the register gained since an older table was made (names come only from ColumnScripts).
+                        For Each C As String() In ColumnScripts()
+                            Using Check As New SqlCommand("SELECT COL_LENGTH(@t, @c)", Db, Tx)
+                                Check.Parameters.AddWithValue("@t", "dbo." & C(0))
+                                Check.Parameters.AddWithValue("@c", C(1))
+                                If IsDBNull(Check.ExecuteScalar()) Then
+                                    Using Add As New SqlCommand("ALTER TABLE dbo." & C(0) & " ADD " & C(1) & " " & C(2), Db, Tx)
+                                        Add.ExecuteNonQuery()
+                                    End Using
+                                    R.ColumnsAdded.Add(C(0) & "." & C(1))
+                                End If
+                            End Using
+                        Next
+                        ' A register table added to a database that already had its logins: let them use it.
+                        If Not R.DatabaseCreated Then
+                            For Each T As String In R.TablesCreated
+                                If T = KitchenTable Then Continue For
+                                Using G As New SqlCommand(
+                                    "IF EXISTS (SELECT 1 FROM sys.database_principals WHERE name = N'" & SyncLogin & "') " &
+                                    "GRANT SELECT, INSERT, UPDATE, DELETE ON dbo." & T & " TO [" & SyncLogin & "]", Db, Tx)
+                                    G.ExecuteNonQuery()
+                                End Using
+                            Next
+                            If R.TablesCreated.Contains("item_variants") Then
+                                Using G As New SqlCommand(
+                                    "IF EXISTS (SELECT 1 FROM sys.database_principals WHERE name = N'kfidisplay_read') " &
+                                    "GRANT SELECT ON dbo.item_variants TO [kfidisplay_read]", Db, Tx)
+                                    G.ExecuteNonQuery()
+                                End Using
+                            End If
+                        End If
                         Tx.Commit()
                     End Using
                 End Using
             Catch ex As Exception
                 R.TablesCreated.Clear()
+                R.ColumnsAdded.Clear()
                 R.Errors.Add("Couldn't create the tables: " & ex.Message)
                 Return R
             End Try

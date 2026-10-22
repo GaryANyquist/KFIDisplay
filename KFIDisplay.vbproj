@@ -114,6 +114,8 @@
   </ItemGroup>
   <ItemGroup>
     <Compile Include="DatabaseSetup.vb" />
+    <Compile Include="DisplaySettings.vb" />
+    <Compile Include="PhotoCopier.vb" />
     <Compile Include="ServiceStarter.vb" />
     <Compile Include="StartupSetup.vb" />
     <Compile Include="Form1.vb">
