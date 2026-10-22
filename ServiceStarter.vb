@@ -3,18 +3,16 @@ Imports System.IO
 Imports System.Net.NetworkInformation
 
 ''' <summary>
-''' Makes sure the two Node services that feed and read the KFDisplay database are running: the sync service
-''' (receives the register tablet's sales, menu and photos) and the Kitchen Display server. They normally start
-''' from Windows scheduled tasks at boot; this starts any that is not running when KFIDisplay starts, using the
-''' same start scripts (which log to the service's own logs folder). A service counts as running when something is
-''' listening on its port, so one started by a scheduled task is never started twice.
+''' Makes sure the Node sync service that feeds the KFDisplay database is running (it receives the registers' sales,
+''' menu and photos). It normally starts from its Windows scheduled task at boot; this starts it if it is not running
+''' when KFIDisplay starts, using the same start script (which logs to the service's own logs folder). It counts as
+''' running when something is listening on its port, so one started by the scheduled task is never started twice.
+''' (The old Kitchen Display server is retired, 2026-10-22.)
 ''' </summary>
 Public Class ServiceStarter
     ' Where the services live on this PC. Change here if they move.
     Public Const SyncScript As String = "C:\Source\kfdisplay-sync\start-sync.cmd"
     Public Const SyncPort As Integer = 8787
-    Public Const KitchenScript As String = "C:\Source\KitchenDisplay\start-kitchen.cmd"
-    Public Const KitchenPort As Integer = 8790
 
     ''' <summary>True when something on this PC is listening on the TCP port.</summary>
     Public Shared Function IsListening(ByVal Port As Integer) As Boolean
@@ -70,11 +68,10 @@ Public Class ServiceStarter
         End Try
     End Function
 
-    ''' <summary>Checks both services; one log line each.</summary>
+    ''' <summary>Checks the sync service (the old Kitchen Display server is retired, 2026-10-22); one log line.</summary>
     Public Shared Function EnsureAllRunning() As List(Of String)
         Dim L As New List(Of String)
         L.Add(EnsureRunning("KFDisplay sync service", SyncScript, SyncPort))
-        L.Add(EnsureRunning("Kitchen Display service", KitchenScript, KitchenPort))
         Return L
     End Function
 End Class

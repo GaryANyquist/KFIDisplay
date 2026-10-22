@@ -249,12 +249,8 @@ CREATE TABLE dbo.register_wix_links (
     image_url    nvarchar(1000) NULL
 );
 CREATE INDEX idx_wix_links_register ON dbo.register_wix_links(register_id);"))
-        ' Not a register table: which ticket lines the Kitchen Display app has ticked off.
-        L.Add(New KeyValuePair(Of String, String)(KitchenTable, "
-CREATE TABLE dbo.kitchen_line_done (
-    line_uid  nvarchar(64) NOT NULL PRIMARY KEY,
-    done_at   datetime2(3) NOT NULL DEFAULT SYSUTCDATETIME()
-);"))
+        ' (The old Kitchen Display server's kitchen_line_done table and kitchen_display login are no longer made: that
+        ' app is retired, 2026-10-22. A database that has them keeps them.)
         Return L
     End Function
 
@@ -269,8 +265,6 @@ CREATE TABLE dbo.kitchen_line_done (
         }
     End Function
 
-    Private Const KitchenTable As String = "kitchen_line_done"
-    Public Const DefaultKitchenLogin As String = "kitchen_display"
 
     Private Shared ReadOnly SafeName As New Regex("^[A-Za-z0-9_]{1,100}$")
 
@@ -278,16 +272,14 @@ CREATE TABLE dbo.kitchen_line_done (
     ''' The same server is connected to (as the same Windows user) to create the database and the login.</param>
     ''' <param name="SyncLogin">The SQL login for the sync service (reads and writes the register tables).</param>
     ''' <param name="PasswordFolder">Where each new login's password is written.</param>
-    ''' <param name="KitchenLogin">The SQL login for the Kitchen Display app (reads orders and the menu, bumps orders).</param>
     Public Shared Function EnsureReady(ByVal ConnectionString As String,
                                        Optional ByVal SyncLogin As String = DefaultLogin,
-                                       Optional ByVal PasswordFolder As String = "C:\KFDisplay",
-                                       Optional ByVal KitchenLogin As String = DefaultKitchenLogin) As SetupResult
+                                       Optional ByVal PasswordFolder As String = "C:\KFDisplay") As SetupResult
         Dim R As New SetupResult
         Try
             Dim B As New SqlConnectionStringBuilder(ConnectionString)
             Dim DbName As String = B.InitialCatalog
-            If Not SafeName.IsMatch(DbName) OrElse Not SafeName.IsMatch(SyncLogin) OrElse Not SafeName.IsMatch(KitchenLogin) Then
+            If Not SafeName.IsMatch(DbName) OrElse Not SafeName.IsMatch(SyncLogin) Then
                 R.Errors.Add("The database or login name has characters that are not allowed.")
                 Return R
             End If
@@ -352,7 +344,6 @@ CREATE TABLE dbo.kitchen_line_done (
                         ' A register table added to a database that already had its logins: let them use it.
                         If Not R.DatabaseCreated Then
                             For Each T As String In R.TablesCreated
-                                If T = KitchenTable Then Continue For
                                 Using G As New SqlCommand(
                                     "IF EXISTS (SELECT 1 FROM sys.database_principals WHERE name = N'" & SyncLogin & "') " &
                                     "GRANT SELECT, INSERT, UPDATE, DELETE ON dbo." & T & " TO [" & SyncLogin & "]", Db, Tx)
@@ -381,7 +372,7 @@ CREATE TABLE dbo.kitchen_line_done (
             If R.DatabaseCreated Then
                 Dim RegisterTables As New List(Of String)
                 For Each T In TableScripts()
-                    If T.Key <> KitchenTable Then RegisterTables.Add(T.Key)
+                    RegisterTables.Add(T.Key)
                 Next
                 ' The sync service (kfdisplay-sync): read and write the register tables, nothing else.
                 Dim SyncGrants As New List(Of String)
@@ -391,16 +382,6 @@ CREATE TABLE dbo.kitchen_line_done (
                 TryLogin(MasterB.ConnectionString, B.ConnectionString, DbName, SyncLogin, PasswordFolder, R,
                          "SQL login for the kfdisplay-sync service:", "KFDISPLAY_USER", "KFDISPLAY_PASSWORD",
                          "Put these two lines in kfdisplay-sync's .env", SyncGrants)
-                ' The Kitchen Display app: read the orders and menu, change only the ready / bumped times and its own table.
-                Dim KitchenGrants As New List(Of String)
-                For Each T As String In {"orders", "order_lines", "order_line_modifiers", "items", "categories"}
-                    KitchenGrants.Add("GRANT SELECT ON dbo." & T & " TO [" & KitchenLogin & "]")
-                Next
-                KitchenGrants.Add("GRANT UPDATE (order_up_at, completed_at) ON dbo.orders TO [" & KitchenLogin & "]")
-                KitchenGrants.Add("GRANT SELECT, INSERT, DELETE ON dbo." & KitchenTable & " TO [" & KitchenLogin & "]")
-                TryLogin(MasterB.ConnectionString, B.ConnectionString, DbName, KitchenLogin, PasswordFolder, R,
-                         "SQL login for the Kitchen Display server:", "DB_USER", "DB_PASSWORD",
-                         "Put these two lines in the Kitchen Display's .env", KitchenGrants)
             End If
         Catch ex As Exception
             R.Errors.Add(ex.Message)

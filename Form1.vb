@@ -55,7 +55,7 @@ Public Class Form1
         Timer2_Tick(sender, e)
     End Sub
 
-    ''' <summary>Starts the KFDisplay sync service and the Kitchen Display service if they are not running (see ServiceStarter.vb).</summary>
+    ''' <summary>Starts the KFDisplay sync service if it is not running (see ServiceStarter.vb).</summary>
     Private Sub StartServices()
         'In the background, so the menu board comes up at once even if this has to install packages or wait for the
         'Windows permission prompt.

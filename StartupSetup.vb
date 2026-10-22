@@ -4,8 +4,9 @@ Imports System.IO
 
 ''' <summary>
 ''' The one-time Windows setup the KFDisplay PC needs so everything keeps working, done from KFIDisplay when it
-''' starts: inbound firewall rules for the two services (the tablets reach them over Wi-Fi) and Windows scheduled
-''' tasks that start them at boot. That needs administrator rights, so KFIDisplay checks first (firewall rules can be
+''' starts: an inbound firewall rule for the sync service (the tablets reach it over Wi-Fi) and a Windows scheduled
+''' task that starts it at boot. (The old Kitchen Display server is retired, 2026-10-22: the kitchen board is the
+''' register app's Kitchen Display mode.) That needs administrator rights, so KFIDisplay checks first (firewall rules can be
 ''' read by anyone; a marker file records that the tasks were set up) and only when something is missing asks once
 ''' (Windows then shows its usual permission prompt) and runs the PowerShell script below. The script only adds what
 ''' is missing, so running it again changes nothing.
@@ -14,7 +15,7 @@ Public Class StartupSetup
     ''' <summary>Raise this when the script changes, so every PC runs it again.</summary>
     Public Const SetupVersion As String = "1"
     Public Const Folder As String = "C:\KFDisplay"
-    Public Shared ReadOnly FirewallRules As String() = {"KFDisplay sync", "Kitchen Display"}
+    Public Shared ReadOnly FirewallRules As String() = {"KFDisplay sync"}
 
     Public Shared ReadOnly Property MarkerFile As String
         Get
@@ -33,10 +34,9 @@ New-Item -ItemType Directory -Force -Path $folder | Out-Null
 function Log([string]$m) { $line = '{0} {1}' -f (Get-Date -Format 's'), $m; Add-Content -Path $logFile -Value $line; Write-Host $line }
 $ok = $true
 
-# The tablets reach the sync service (8787) and the Kitchen Display (8790) over the truck's Wi-Fi.
+# The tablets reach the sync service (8787) over the truck's Wi-Fi.
 $rules = @(
-    @{ Name = 'KFDisplay sync'; Port = 8787 },
-    @{ Name = 'Kitchen Display'; Port = 8790 }
+    @{ Name = 'KFDisplay sync'; Port = 8787 }
 )
 foreach ($r in $rules) {
     try {
@@ -47,10 +47,10 @@ foreach ($r in $rules) {
     } catch { Log ('FAILED firewall rule ' + $r.Name + ': ' + $_.Exception.Message); $ok = $false }
 }
 
-# Start both services when Windows boots, whether or not anyone logs in. No time limit (the default stops a task after 3 days).
+# Start the sync service when Windows boots, whether or not anyone logs in. No time limit (the default stops a task
+# after 3 days). kfdisplay-sync\setup\install-startup.ps1 makes the same task; whichever runs first, the other finds it.
 $tasks = @(
-    @{ Name = 'KFDisplay sync'; Script = 'C:\Source\kfdisplay-sync\start-sync.cmd' },
-    @{ Name = 'Kitchen Display'; Script = 'C:\Source\KitchenDisplay\start-kitchen.cmd' }
+    @{ Name = 'KFDisplay sync'; Script = 'C:\Source\kfdisplay-sync\start-sync.cmd' }
 )
 foreach ($t in $tasks) {
     try {
@@ -122,7 +122,7 @@ if (-not $ok) { exit 1 }
         Try
             Dim Missing As String = WhatIsMissing()
             If Missing = "" Then Return ""
-            If MessageBox.Show("KFIDisplay needs to set up Windows on this PC so the sync service and the Kitchen Display keep working:" & vbCrLf & vbCrLf &
+            If MessageBox.Show("KFIDisplay needs to set up Windows on this PC so the sync service keeps working:" & vbCrLf & vbCrLf &
                                Missing & "." & vbCrLf & vbCrLf &
                                "Windows will ask for administrator permission next. Continue?", "KFIDisplay: Windows setup",
                                MessageBoxButtons.OKCancel, MessageBoxIcon.Question) <> DialogResult.OK Then
