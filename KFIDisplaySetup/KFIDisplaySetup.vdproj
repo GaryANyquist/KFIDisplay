@@ -297,7 +297,7 @@
         "UseSystemSearchPath" = "11:TRUE"
         "TargetPlatform" = "3:0"
         "PreBuildEvent" = "8:"
-        "PostBuildEvent" = "8:"
+        "PostBuildEvent" = "8:powershell -NoProfile -ExecutionPolicy Bypass -File \"$(ProjectDir)no-axvlc-selfreg.ps1\" -Msi \"$(BuiltOuputPath)\""
         "RunPostBuildEvent" = "3:0"
         }
         "Registry"
