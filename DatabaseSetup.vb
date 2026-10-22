@@ -195,6 +195,7 @@ CREATE TABLE dbo.orders (
     tender           nvarchar(20)   NULL,
     processor        nvarchar(20)   NULL,
     processor_ref    nvarchar(200)  NULL,
+    register_id      nvarchar(64)   NULL,
     order_up_at      datetime2(3)   NULL,
     paged_at         datetime2(3)   NULL,
     completed_at     datetime2(3)   NULL,
@@ -261,7 +262,8 @@ CREATE INDEX idx_wix_links_register ON dbo.register_wix_links(register_id);"))
             New String() {"items", "allow_modifier_split", "int NOT NULL DEFAULT 0"},
             New String() {"modifier_groups", "min_select", "int NOT NULL DEFAULT 0"},
             New String() {"modifier_groups", "max_select", "int NOT NULL DEFAULT 0"},
-            New String() {"order_line_modifiers", "half", "int NOT NULL DEFAULT 0"}
+            New String() {"order_line_modifiers", "half", "int NOT NULL DEFAULT 0"},
+            New String() {"orders", "register_id", "nvarchar(64) NULL"}
         }
     End Function
 
