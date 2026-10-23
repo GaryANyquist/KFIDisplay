@@ -250,6 +250,31 @@ CREATE TABLE dbo.register_wix_links (
     image_url    nvarchar(1000) NULL
 );
 CREATE INDEX idx_wix_links_register ON dbo.register_wix_links(register_id);"))
+        ' Coupons (register 2.5.0): made on a register or copied from Wix, with what each covers.
+        L.Add(New KeyValuePair(Of String, String)("coupons", "
+CREATE TABLE dbo.coupons (
+    id            nvarchar(64)  NOT NULL PRIMARY KEY,
+    code          nvarchar(200) NOT NULL,
+    name          nvarchar(200) NOT NULL,
+    type          nvarchar(200) NOT NULL,
+    value         float         NOT NULL DEFAULT 0,
+    buy_qty       int           NULL,
+    get_qty       int           NULL,
+    min_subtotal  int           NULL,
+    one_item      int           NOT NULL DEFAULT 0,
+    starts_on     nvarchar(200) NULL,
+    ends_on       nvarchar(200) NULL,
+    active        int           NOT NULL DEFAULT 1,
+    sort_order    int           NOT NULL DEFAULT 0,
+    synced_at     datetime2(3)  NOT NULL DEFAULT SYSUTCDATETIME()
+);"))
+        L.Add(New KeyValuePair(Of String, String)("coupon_targets", "
+CREATE TABLE dbo.coupon_targets (
+    coupon_id    nvarchar(64)  NOT NULL,
+    target_type  nvarchar(200) NOT NULL,
+    target_id    nvarchar(64)  NOT NULL,
+    PRIMARY KEY (coupon_id, target_type, target_id)
+);"))
         ' (The old Kitchen Display server's kitchen_line_done table and kitchen_display login are no longer made: that
         ' app is retired, 2026-10-22. A database that has them keeps them.)
         Return L
