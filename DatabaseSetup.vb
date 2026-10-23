@@ -250,6 +250,20 @@ CREATE TABLE dbo.register_wix_links (
     image_url    nvarchar(1000) NULL
 );
 CREATE INDEX idx_wix_links_register ON dbo.register_wix_links(register_id);"))
+        ' Orders sent to the kitchen and not paid yet (pay later, register 2.6.0).
+        L.Add(New KeyValuePair(Of String, String)("open_tickets", "
+CREATE TABLE dbo.open_tickets (
+    id             nvarchar(64)   NOT NULL PRIMARY KEY,
+    number         int            NOT NULL,
+    table_no       nvarchar(200)  NULL,
+    created_at     datetime2(3)   NOT NULL,
+    updated_at     datetime2(3)   NOT NULL,
+    register_id    nvarchar(64)   NOT NULL,
+    shift_id       nvarchar(64)   NOT NULL,
+    customer_name  nvarchar(200)  NULL,
+    data           nvarchar(max)  NOT NULL,
+    status         nvarchar(200)  NOT NULL DEFAULT 'open'
+);"))
         ' A sale paid several ways (register 2.5.1): each payment, in order.
         L.Add(New KeyValuePair(Of String, String)("order_payments", "
 CREATE TABLE dbo.order_payments (
