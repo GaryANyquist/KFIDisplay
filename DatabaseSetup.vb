@@ -144,6 +144,7 @@ CREATE TABLE dbo.auto_discounts (
     starts_on   nvarchar(10)  NULL,
     ends_on     nvarchar(10)  NULL,
     sale_price  int           NULL,
+    schedule    nvarchar(max) NULL,
     synced_at   datetime2(3)  NOT NULL DEFAULT SYSUTCDATETIME()
 );"))
         L.Add(New KeyValuePair(Of String, String)("auto_discount_targets", "
@@ -319,7 +320,8 @@ CREATE TABLE dbo.coupon_targets (
             New String() {"modifier_groups", "min_select", "int NOT NULL DEFAULT 0"},
             New String() {"modifier_groups", "max_select", "int NOT NULL DEFAULT 0"},
             New String() {"order_line_modifiers", "half", "int NOT NULL DEFAULT 0"},
-            New String() {"orders", "register_id", "nvarchar(64) NULL"}
+            New String() {"orders", "register_id", "nvarchar(64) NULL"},
+            New String() {"auto_discounts", "schedule", "nvarchar(max) NULL"}
         }
     End Function
 
