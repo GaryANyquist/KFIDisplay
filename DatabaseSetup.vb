@@ -250,6 +250,23 @@ CREATE TABLE dbo.register_wix_links (
     image_url    nvarchar(1000) NULL
 );
 CREATE INDEX idx_wix_links_register ON dbo.register_wix_links(register_id);"))
+        ' A sale paid several ways (register 2.5.1): each payment, in order.
+        L.Add(New KeyValuePair(Of String, String)("order_payments", "
+CREATE TABLE dbo.order_payments (
+    order_id       nvarchar(64)  NOT NULL,
+    seq            int           NOT NULL,
+    tender         nvarchar(200) NOT NULL,
+    amount         int           NOT NULL,
+    tip            int           NOT NULL DEFAULT 0,
+    tendered       int           NULL,
+    change_due     int           NULL,
+    card_brand     nvarchar(200) NULL,
+    last4          nvarchar(200) NULL,
+    processor      nvarchar(200) NULL,
+    processor_ref  nvarchar(200) NULL,
+    reference_id   nvarchar(200) NULL,
+    PRIMARY KEY (order_id, seq)
+);"))
         ' Coupons (register 2.5.0): made on a register or copied from Wix, with what each covers.
         L.Add(New KeyValuePair(Of String, String)("coupons", "
 CREATE TABLE dbo.coupons (
