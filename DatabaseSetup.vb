@@ -198,6 +198,11 @@ CREATE TABLE dbo.orders (
     processor        nvarchar(20)   NULL,
     processor_ref    nvarchar(200)  NULL,
     register_id      nvarchar(64)   NULL,
+    delivery_fee     int            NOT NULL DEFAULT 0,
+    customer_id      nvarchar(64)   NULL,
+    delivery_phone   nvarchar(200)  NULL,
+    delivery_address nvarchar(1000) NULL,
+    delivery_notes   nvarchar(1000) NULL,
     order_up_at      datetime2(3)   NULL,
     paged_at         datetime2(3)   NULL,
     completed_at     datetime2(3)   NULL,
@@ -252,6 +257,18 @@ CREATE TABLE dbo.register_wix_links (
     image_url    nvarchar(1000) NULL
 );
 CREATE INDEX idx_wix_links_register ON dbo.register_wix_links(register_id);"))
+        ' Delivery customers saved on a register (register 2.9.0).
+        L.Add(New KeyValuePair(Of String, String)("customers", "
+CREATE TABLE dbo.customers (
+    id          nvarchar(64)   NOT NULL PRIMARY KEY,
+    name        nvarchar(200)  NOT NULL,
+    phone       nvarchar(200)  NULL,
+    address     nvarchar(1000) NULL,
+    notes       nvarchar(1000) NULL,
+    created_at  nvarchar(200)  NULL,
+    updated_at  nvarchar(200)  NULL,
+    synced_at   datetime2(3)   NOT NULL DEFAULT SYSUTCDATETIME()
+);"))
         ' Orders sent to the kitchen and not paid yet (pay later, register 2.6.0).
         L.Add(New KeyValuePair(Of String, String)("open_tickets", "
 CREATE TABLE dbo.open_tickets (
@@ -323,7 +340,12 @@ CREATE TABLE dbo.coupon_targets (
             New String() {"order_line_modifiers", "half", "int NOT NULL DEFAULT 0"},
             New String() {"orders", "register_id", "nvarchar(64) NULL"},
             New String() {"auto_discounts", "schedule", "nvarchar(max) NULL"},
-            New String() {"auto_discounts", "conditions", "nvarchar(max) NULL"}
+            New String() {"auto_discounts", "conditions", "nvarchar(max) NULL"},
+            New String() {"orders", "delivery_fee", "int NOT NULL DEFAULT 0"},
+            New String() {"orders", "customer_id", "nvarchar(64) NULL"},
+            New String() {"orders", "delivery_phone", "nvarchar(200) NULL"},
+            New String() {"orders", "delivery_address", "nvarchar(1000) NULL"},
+            New String() {"orders", "delivery_notes", "nvarchar(1000) NULL"}
         }
     End Function
 
