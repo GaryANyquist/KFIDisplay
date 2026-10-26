@@ -267,6 +267,7 @@ CREATE TABLE dbo.customers (
     notes       nvarchar(1000) NULL,
     created_at  nvarchar(200)  NULL,
     updated_at  nvarchar(200)  NULL,
+    deleted_at  nvarchar(200)  NULL,
     synced_at   datetime2(3)   NOT NULL DEFAULT SYSUTCDATETIME()
 );"))
         ' Orders sent to the kitchen and not paid yet (pay later, register 2.6.0).
@@ -345,7 +346,8 @@ CREATE TABLE dbo.coupon_targets (
             New String() {"orders", "customer_id", "nvarchar(64) NULL"},
             New String() {"orders", "delivery_phone", "nvarchar(200) NULL"},
             New String() {"orders", "delivery_address", "nvarchar(1000) NULL"},
-            New String() {"orders", "delivery_notes", "nvarchar(1000) NULL"}
+            New String() {"orders", "delivery_notes", "nvarchar(1000) NULL"},
+            New String() {"customers", "deleted_at", "nvarchar(200) NULL"}
         }
     End Function
 
