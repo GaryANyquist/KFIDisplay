@@ -82,7 +82,8 @@ Public Class Form2
 
     ''' <summary>
     ''' "Menu board shows:" at the top (register 2.9.11, Gary 2026-10-26): All menus, or one of the Wix menus the registers
-    ''' sent. The choice is saved in display.ini (Menu=) and the board uses it from its next refresh.
+    ''' sent. The same choice a register makes (Settings → Menu layout → Menu board shows); saved in the database, and the
+    ''' board uses it from its next refresh.
     ''' </summary>
     Private Sub AddMenuChoice()
         Dim Caption As New Label With {.Text = "Menu board shows:", .AutoSize = True, .Left = 6, .Top = 9}
@@ -101,7 +102,7 @@ Public Class Form2
                 MenuIds.Add(Row("id").ToString)
             Next
         End If
-        Dim Current As Integer = MenuIds.IndexOf(DisplaySettings.MenuId)
+        Dim Current As Integer = MenuIds.IndexOf(Form1.BoardMenuId())
         MenuChoice.SelectedIndex = If(Current < 0, 0, Current)
         Filling = False
     End Sub
@@ -109,7 +110,7 @@ Public Class Form2
     Private Sub MenuChoice_SelectedIndexChanged(sender As Object, e As EventArgs) Handles MenuChoice.SelectedIndexChanged
         If Filling OrElse MenuChoice.SelectedIndex < 0 Then Exit Sub
         Try
-            DisplaySettings.SaveMenuId(MenuIds(MenuChoice.SelectedIndex))
+            Form1.SetBoardMenuId(MenuIds(MenuChoice.SelectedIndex))
         Catch ex As Exception
             MessageBox.Show("The menu choice could not be saved: " & ex.Message, "Menu board")
         End Try

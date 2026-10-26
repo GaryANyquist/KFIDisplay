@@ -122,7 +122,7 @@ Public Class Form1
             "  ISNULL((SELECT MAX(v.price) FROM item_variants v WHERE v.item_id = i.id), 0) AS TopVariantCents,",
             "  0 AS TopVariantCents,")
         'The Wix menu chosen in the menu window (register 2.9.11): only its items, in its category order.
-        Dim Menu As String = If(HasMenusTable(), DisplaySettings.MenuId.Replace("'", "''"), "")
+        Dim Menu As String = If(HasMenusTable(), BoardMenuId().Replace("'", "''"), "")
         Dim MenuJoin As String = If(Menu = "", "",
             " LEFT JOIN menu_categories mc ON mc.menu_id = '" & Menu & "' AND mc.category_id = c.id")
         Dim MenuFilter As String = If(Menu = "", "",
@@ -157,6 +157,41 @@ Public Class Form1
             "       WHEN OffCents > 0 THEN CAST((PriceCents - OffCents) / 100.0 AS money) ELSE CAST(-1 AS money) END AS SalesPrice" &
             " FROM board WHERE SortOrder > " & AfterSortOrder & " ORDER BY SortOrder"
     End Function
+
+    ''' <summary>
+    ''' The menu the board shows (register 2.9.12, Gary 2026-10-26: changed from a register): board_settings 'menu' in the
+    ''' database when it is there (setup 20 / 2.0.19), else display.ini's Menu=. "" = all menus.
+    ''' </summary>
+    Public Function BoardMenuId() As String
+        Try
+            Dim DS As DataSet = AnnawareData.ReturnRecords(
+                "IF OBJECT_ID(N'dbo.board_settings', N'U') IS NOT NULL SELECT value FROM dbo.board_settings WHERE name = N'menu'",
+                New SqlConnection(ConnectionString), "SQL")
+            If DS.Tables.Count > 0 AndAlso DS.Tables(0).Rows.Count > 0 Then Return DS.Tables(0).Rows(0)("value").ToString
+        Catch ex As Exception
+        End Try
+        Return DisplaySettings.MenuId
+    End Function
+
+    ''' <summary>Sets the board's menu in the database (where every register sees it), or display.ini if it can't be written.</summary>
+    Public Sub SetBoardMenuId(ByVal Id As String)
+        Try
+            Using Con As New SqlConnection(ConnectionString)
+                Con.Open()
+                Using Cmd As New SqlCommand(
+                    "IF OBJECT_ID(N'dbo.board_settings', N'U') IS NOT NULL " &
+                    "MERGE dbo.board_settings WITH (HOLDLOCK) AS t USING (SELECT N'menu' AS name, @v AS value) AS s ON t.name = s.name " &
+                    "WHEN MATCHED THEN UPDATE SET value = s.value, updated_at = SYSUTCDATETIME() " &
+                    "WHEN NOT MATCHED THEN INSERT (name, value) VALUES (s.name, s.value);", Con)
+                    Cmd.Parameters.AddWithValue("@v", Id)
+                    Cmd.ExecuteNonQuery()
+                End Using
+            End Using
+        Catch ex As Exception
+            'The read-only display login (KFIDisplay on another PC) can't write: change it from a register instead.
+        End Try
+        DisplaySettings.SaveMenuId(Id)
+    End Sub
 
     ''' <summary>True once the menus tables are there (kfdisplay-sync setup 19, or KFIDisplay 2.0.18's own setup).</summary>
     Public Function HasMenusTable() As Boolean
@@ -354,8 +389,8 @@ Public Class Form1
             Else
                 Dim DS As DataSet = AnnawareData.ReturnRecords(
                     "SELECT id, name, image FROM items WHERE show_on_menu_board = 1 AND image IS NOT NULL AND image <> ''" &
-                    If(DisplaySettings.MenuId <> "" AndAlso HasMenusTable(),
-                       " AND id IN (SELECT item_id FROM menu_items WHERE menu_id = '" & DisplaySettings.MenuId.Replace("'", "''") & "')", "") &
+                    If(BoardMenuId() <> "" AndAlso HasMenusTable(),
+                       " AND id IN (SELECT item_id FROM menu_items WHERE menu_id = '" & BoardMenuId().Replace("'", "''") & "')", "") &
                     " ORDER BY NEWID()",
                     New SqlConnection(ConnectionString), "SQL")
                 For Each Row As DataRow In DS.Tables(0).Rows

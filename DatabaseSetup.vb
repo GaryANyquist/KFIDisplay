@@ -257,6 +257,13 @@ CREATE TABLE dbo.register_wix_links (
     image_url    nvarchar(1000) NULL
 );
 CREATE INDEX idx_wix_links_register ON dbo.register_wix_links(register_id);"))
+        ' The board's settings (register 2.9.12): name 'menu' = the menu the board shows, set from a register or here.
+        L.Add(New KeyValuePair(Of String, String)("board_settings", "
+CREATE TABLE dbo.board_settings (
+    name        nvarchar(64)   NOT NULL PRIMARY KEY,
+    value       nvarchar(max)  NULL,
+    updated_at  datetime2(3)   NOT NULL DEFAULT SYSUTCDATETIME()
+);"))
         ' The Wix menus (register 2.9.11): the board can show one of them.
         L.Add(New KeyValuePair(Of String, String)("menus", "
 CREATE TABLE dbo.menus (
@@ -459,7 +466,7 @@ CREATE TABLE dbo.coupon_targets (
                                 End Using
                             Next
                             ' Tables the menu board reads, for a KFIDisplay on another PC (the read-only display login).
-                            For Each T As String In New String() {"item_variants", "menus", "menu_categories", "menu_items"}
+                            For Each T As String In New String() {"item_variants", "menus", "menu_categories", "menu_items", "board_settings"}
                                 If R.TablesCreated.Contains(T) Then
                                     Using G As New SqlCommand(
                                         "IF EXISTS (SELECT 1 FROM sys.database_principals WHERE name = N'kfidisplay_read') " &
