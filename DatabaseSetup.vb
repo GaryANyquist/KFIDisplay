@@ -257,6 +257,28 @@ CREATE TABLE dbo.register_wix_links (
     image_url    nvarchar(1000) NULL
 );
 CREATE INDEX idx_wix_links_register ON dbo.register_wix_links(register_id);"))
+        ' The Wix menus (register 2.9.11): the board can show one of them.
+        L.Add(New KeyValuePair(Of String, String)("menus", "
+CREATE TABLE dbo.menus (
+    id          nvarchar(64)   NOT NULL PRIMARY KEY,
+    name        nvarchar(200)  NOT NULL,
+    visible     int            NOT NULL DEFAULT 1,
+    sort_order  int            NOT NULL DEFAULT 0,
+    synced_at   datetime2(3)   NOT NULL DEFAULT SYSUTCDATETIME()
+);"))
+        L.Add(New KeyValuePair(Of String, String)("menu_categories", "
+CREATE TABLE dbo.menu_categories (
+    menu_id      nvarchar(64)  NOT NULL,
+    category_id  nvarchar(64)  NOT NULL,
+    sort_order   int           NOT NULL DEFAULT 0,
+    PRIMARY KEY (menu_id, category_id)
+);"))
+        L.Add(New KeyValuePair(Of String, String)("menu_items", "
+CREATE TABLE dbo.menu_items (
+    menu_id  nvarchar(64)  NOT NULL,
+    item_id  nvarchar(64)  NOT NULL,
+    PRIMARY KEY (menu_id, item_id)
+);"))
         ' Delivery customers saved on a register (register 2.9.0).
         L.Add(New KeyValuePair(Of String, String)("customers", "
 CREATE TABLE dbo.customers (
@@ -436,13 +458,16 @@ CREATE TABLE dbo.coupon_targets (
                                     G.ExecuteNonQuery()
                                 End Using
                             Next
-                            If R.TablesCreated.Contains("item_variants") Then
-                                Using G As New SqlCommand(
-                                    "IF EXISTS (SELECT 1 FROM sys.database_principals WHERE name = N'kfidisplay_read') " &
-                                    "GRANT SELECT ON dbo.item_variants TO [kfidisplay_read]", Db, Tx)
-                                    G.ExecuteNonQuery()
-                                End Using
-                            End If
+                            ' Tables the menu board reads, for a KFIDisplay on another PC (the read-only display login).
+                            For Each T As String In New String() {"item_variants", "menus", "menu_categories", "menu_items"}
+                                If R.TablesCreated.Contains(T) Then
+                                    Using G As New SqlCommand(
+                                        "IF EXISTS (SELECT 1 FROM sys.database_principals WHERE name = N'kfidisplay_read') " &
+                                        "GRANT SELECT ON dbo." & T & " TO [kfidisplay_read]", Db, Tx)
+                                        G.ExecuteNonQuery()
+                                    End Using
+                                End If
+                            Next
                         End If
                         Tx.Commit()
                     End Using

@@ -121,6 +121,13 @@ Public Class Form1
         Dim TopVariant As String = If(HasVariantsTable(),
             "  ISNULL((SELECT MAX(v.price) FROM item_variants v WHERE v.item_id = i.id), 0) AS TopVariantCents,",
             "  0 AS TopVariantCents,")
+        'The Wix menu chosen in the menu window (register 2.9.11): only its items, in its category order.
+        Dim Menu As String = If(HasMenusTable(), DisplaySettings.MenuId.Replace("'", "''"), "")
+        Dim MenuJoin As String = If(Menu = "", "",
+            " LEFT JOIN menu_categories mc ON mc.menu_id = '" & Menu & "' AND mc.category_id = c.id")
+        Dim MenuFilter As String = If(Menu = "", "",
+            " AND i.id IN (SELECT item_id FROM menu_items WHERE menu_id = '" & Menu & "')")
+        Dim MenuOrder As String = If(Menu = "", "", "ISNULL(mc.sort_order, 100000), ")
         Return "WITH board AS (" &
             " SELECT c.name AS Category, i.name AS ItemNumber, ISNULL(i.description, '') AS Description," &
             "  i.price AS PriceCents, i.out_of_stock AS SoldOut," &
@@ -129,8 +136,8 @@ Public Class Form1
             "    WHERE l.item_id = i.id AND g.required = 1 AND g.multi_select = 0), 0) AS SizeUpCents," &
             TopVariant &
             "  ISNULL(disc.OffCents, 0) AS OffCents," &
-            "  ROW_NUMBER() OVER (ORDER BY c.sort_order, c.name, i.sort_order, i.name) AS SortOrder" &
-            " FROM items i JOIN categories c ON c.id = i.category_id" &
+            "  ROW_NUMBER() OVER (ORDER BY " & MenuOrder & "c.sort_order, c.name, i.sort_order, i.name) AS SortOrder" &
+            " FROM items i JOIN categories c ON c.id = i.category_id" & MenuJoin &
             " OUTER APPLY (SELECT MAX(x.OffCents) AS OffCents FROM (" &
             "    SELECT CASE " & SalePrice & "WHEN d.type = 'percent' THEN ROUND(i.price * d.value / 100.0, 0)" &
             "                WHEN d.value > i.price THEN i.price ELSE d.value END AS OffCents" &
@@ -140,7 +147,7 @@ Public Class Form1
             "      AND (d.ends_on IS NULL OR d.ends_on >= CONVERT(char(10), GETDATE(), 23))" &
             "      AND EXISTS (SELECT 1 FROM auto_discount_targets t WHERE t.discount_id = d.id" &
             "        AND ((t.target_type = 'item' AND t.target_id = i.id) OR (t.target_type = 'category' AND t.target_id = i.category_id)))) x) disc" &
-            " WHERE i.show_on_menu_board = 1 AND i.archived = 0)" &
+            " WHERE i.show_on_menu_board = 1 AND i.archived = 0" & MenuFilter & ")" &
             " SELECT Category, ItemNumber, Description, CAST(PriceCents / 100.0 AS money) AS Price," &
             "  CASE WHEN TopVariantCents > PriceCents THEN CAST(TopVariantCents / 100.0 AS money)" &
             "       WHEN SizeUpCents > 0 THEN CAST((PriceCents + SizeUpCents) / 100.0 AS money) ELSE NULL END AS Price2," &
@@ -149,6 +156,18 @@ Public Class Form1
             "       THEN CAST(0 AS money)" &
             "       WHEN OffCents > 0 THEN CAST((PriceCents - OffCents) / 100.0 AS money) ELSE CAST(-1 AS money) END AS SalesPrice" &
             " FROM board WHERE SortOrder > " & AfterSortOrder & " ORDER BY SortOrder"
+    End Function
+
+    ''' <summary>True once the menus tables are there (kfdisplay-sync setup 19, or KFIDisplay 2.0.18's own setup).</summary>
+    Public Function HasMenusTable() As Boolean
+        Try
+            Dim DS As DataSet = AnnawareData.ReturnRecords(
+                "SELECT CASE WHEN OBJECT_ID(N'dbo.menu_items', N'U') IS NULL THEN 0 ELSE 1 END AS HasIt",
+                New SqlConnection(ConnectionString), "SQL")
+            Return CInt(DS.Tables(0).Rows(0)("HasIt")) = 1
+        Catch ex As Exception
+            Return False
+        End Try
     End Function
 
     ''' <summary>True once the item_variants table is there (kfdisplay-sync setup 10, or KFIDisplay 2.0.8's own setup).</summary>
@@ -334,7 +353,10 @@ Public Class Form1
                 Timer2.Interval = 20000
             Else
                 Dim DS As DataSet = AnnawareData.ReturnRecords(
-                    "SELECT id, name, image FROM items WHERE show_on_menu_board = 1 AND image IS NOT NULL AND image <> '' ORDER BY NEWID()",
+                    "SELECT id, name, image FROM items WHERE show_on_menu_board = 1 AND image IS NOT NULL AND image <> ''" &
+                    If(DisplaySettings.MenuId <> "" AndAlso HasMenusTable(),
+                       " AND id IN (SELECT item_id FROM menu_items WHERE menu_id = '" & DisplaySettings.MenuId.Replace("'", "''") & "')", "") &
+                    " ORDER BY NEWID()",
                     New SqlConnection(ConnectionString), "SQL")
                 For Each Row As DataRow In DS.Tables(0).Rows
                     Dim Photo As String = ItemPhotoPath(Row("id").ToString, Row("image").ToString)

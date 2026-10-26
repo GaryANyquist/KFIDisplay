@@ -71,7 +71,48 @@ Public Class Form2
         Enabled.AutoCheck = False
         SoldOut.AutoCheck = False
         SQLConnection = New SqlConnection(Form1.ConnectionString)
+        AddMenuChoice()
         FillTreeView()
+    End Sub
+
+    ''' <summary>One Wix menu id per entry in the choice ("" = all menus).</summary>
+    Private ReadOnly MenuIds As New List(Of String)
+    Private WithEvents MenuChoice As ComboBox
+    Private Filling As Boolean
+
+    ''' <summary>
+    ''' "Menu board shows:" at the top (register 2.9.11, Gary 2026-10-26): All menus, or one of the Wix menus the registers
+    ''' sent. The choice is saved in display.ini (Menu=) and the board uses it from its next refresh.
+    ''' </summary>
+    Private Sub AddMenuChoice()
+        Dim Caption As New Label With {.Text = "Menu board shows:", .AutoSize = True, .Left = 6, .Top = 9}
+        MenuChoice = New ComboBox With {.DropDownStyle = ComboBoxStyle.DropDownList, .Left = 120, .Top = 5, .Width = 175}
+        Controls.Add(Caption)
+        Controls.Add(MenuChoice)
+        TreeView1.Top += 34
+        TreeView1.Height -= 34
+        Filling = True
+        MenuChoice.Items.Add("All menus")
+        MenuIds.Add("")
+        If Form1.HasMenusTable() Then
+            Dim DS As DataSet = AnnawareData.ReturnRecords("SELECT id, name, visible FROM menus ORDER BY sort_order, name", SQLConnection, "SQL")
+            For Each Row As DataRow In DS.Tables(0).Rows
+                MenuChoice.Items.Add(Row("name").ToString & If(CInt(Row("visible")) = 1, "", " (hidden on the website)"))
+                MenuIds.Add(Row("id").ToString)
+            Next
+        End If
+        Dim Current As Integer = MenuIds.IndexOf(DisplaySettings.MenuId)
+        MenuChoice.SelectedIndex = If(Current < 0, 0, Current)
+        Filling = False
+    End Sub
+
+    Private Sub MenuChoice_SelectedIndexChanged(sender As Object, e As EventArgs) Handles MenuChoice.SelectedIndexChanged
+        If Filling OrElse MenuChoice.SelectedIndex < 0 Then Exit Sub
+        Try
+            DisplaySettings.SaveMenuId(MenuIds(MenuChoice.SelectedIndex))
+        Catch ex As Exception
+            MessageBox.Show("The menu choice could not be saved: " & ex.Message, "Menu board")
+        End Try
     End Sub
 
     Private Sub TreeView1_DoubleClick(sender As Object, e As EventArgs) Handles TreeView1.DoubleClick

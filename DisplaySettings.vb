@@ -10,6 +10,7 @@ Imports System.IO
 '''   SqlPassword=...
 '''   SyncAddress=http://SQLPC:8787  the sync service on that PC, which photos are copied from
 '''   DisplayKey=...                   DISPLAY_KEY from that sync service's .env
+'''   Menu=wxm_...                     the Wix menu the board shows (2.0.18; empty = all menus), set in the menu window
 '''
 ''' Without the file (or with SqlServer empty) everything is on this PC, as before: the local SQL Server with
 ''' Windows sign-in, and this app sets up the database and starts the services.
@@ -18,7 +19,7 @@ Public Class DisplaySettings
     Public Const FilePath As String = "C:\KFDisplay\display.ini"
     Public Const LocalConnection As String = "Data Source=.\SQLEXPRESS;Initial Catalog=KFDisplay;Integrated Security=True"
 
-    Private Shared ReadOnly Values As Dictionary(Of String, String) = Load()
+    Private Shared Values As Dictionary(Of String, String) = Load()
 
     Private Shared Function Load() As Dictionary(Of String, String)
         Dim D As New Dictionary(Of String, String)(StringComparer.OrdinalIgnoreCase)
@@ -76,4 +77,29 @@ Public Class DisplaySettings
             Return Value("DisplayKey")
         End Get
     End Property
+
+    ''' <summary>The Wix menu the board shows (a menus.id), or "" for all menus (register 2.9.11, Gary 2026-10-26).</summary>
+    Public Shared ReadOnly Property MenuId As String
+        Get
+            Return Value("Menu")
+        End Get
+    End Property
+
+    ''' <summary>Saves the board's menu in display.ini, keeping every other line as it was.</summary>
+    Public Shared Sub SaveMenuId(ByVal Id As String)
+        Dim Lines As New List(Of String)
+        If File.Exists(FilePath) Then Lines.AddRange(File.ReadAllLines(FilePath))
+        Dim Found As Boolean = False
+        For k As Integer = 0 To Lines.Count - 1
+            Dim T As String = Lines(k).Trim()
+            If T.StartsWith("Menu=", StringComparison.OrdinalIgnoreCase) OrElse T.StartsWith("Menu =", StringComparison.OrdinalIgnoreCase) Then
+                Lines(k) = "Menu=" & Id
+                Found = True
+            End If
+        Next
+        If Not Found Then Lines.Add("Menu=" & Id)
+        Directory.CreateDirectory(Path.GetDirectoryName(FilePath))
+        File.WriteAllLines(FilePath, Lines)
+        Values = Load()
+    End Sub
 End Class
