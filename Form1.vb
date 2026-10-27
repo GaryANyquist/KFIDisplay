@@ -113,11 +113,15 @@ Public Class Form1
     ''' cents. Only items switched on with "Show on menu board" (and not hidden) are shown.
     ''' A sale-price discount (from Wix, auto_discounts.sale_price, added by kfdisplay-sync setup 07) takes
     ''' off the difference to the sale price; before 07 is run the column is missing and is left out.
+    ''' A discount with conditions (a minimum quantity or order, Buy X get Y: auto_discounts.conditions, register 2.8.0)
+    ''' isn't shown (Gary 2026-10-27: only dates and times may decide a board price), since the price depends on the order.
     ''' </summary>
     Private Function MenuBoardSql(ByVal AfterSortOrder As Long) As String
         Dim SalePrice As String = If(HasSalePriceColumn(),
             "WHEN d.sale_price IS NOT NULL THEN CASE WHEN i.price > d.sale_price THEN i.price - d.sale_price ELSE 0 END ", "")
         'Sizes as item variants (register 2.4.8+, synced by kfdisplay-sync setup 10): the dearest size is the second price.
+        Dim NoConditions As String = If(HasConditionsColumn(),
+            "      AND (d.conditions IS NULL OR LTRIM(RTRIM(d.conditions)) IN ('', '{}', 'null'))", "")
         Dim TopVariant As String = If(HasVariantsTable(),
             "  ISNULL((SELECT MAX(v.price) FROM item_variants v WHERE v.item_id = i.id), 0) AS TopVariantCents,",
             "  0 AS TopVariantCents,")
@@ -144,7 +148,7 @@ Public Class Form1
             "    FROM auto_discounts d" &
             "    WHERE d.active = 1" &
             "      AND (d.starts_on IS NULL OR d.starts_on <= CONVERT(char(10), GETDATE(), 23))" &
-            "      AND (d.ends_on IS NULL OR d.ends_on >= CONVERT(char(10), GETDATE(), 23))" &
+            "      AND (d.ends_on IS NULL OR d.ends_on >= CONVERT(char(10), GETDATE(), 23))" & NoConditions &
             "      AND EXISTS (SELECT 1 FROM auto_discount_targets t WHERE t.discount_id = d.id" &
             "        AND ((t.target_type = 'item' AND t.target_id = i.id) OR (t.target_type = 'category' AND t.target_id = i.category_id)))) x) disc" &
             " WHERE i.show_on_menu_board = 1 AND i.archived = 0" & MenuFilter & ")" &
@@ -210,6 +214,18 @@ Public Class Form1
         Try
             Dim DS As DataSet = AnnawareData.ReturnRecords(
                 "SELECT CASE WHEN OBJECT_ID(N'dbo.item_variants', N'U') IS NULL THEN 0 ELSE 1 END AS HasIt",
+                New SqlConnection(ConnectionString), "SQL")
+            Return CInt(DS.Tables(0).Rows(0)("HasIt")) = 1
+        Catch ex As Exception
+            Return False
+        End Try
+    End Function
+
+    ''' <summary>True once auto_discounts.conditions is there (kfdisplay-sync setup 16, or KFIDisplay's own setup).</summary>
+    Private Function HasConditionsColumn() As Boolean
+        Try
+            Dim DS As DataSet = AnnawareData.ReturnRecords(
+                "SELECT CASE WHEN COL_LENGTH('dbo.auto_discounts', 'conditions') IS NULL THEN 0 ELSE 1 END AS HasIt",
                 New SqlConnection(ConnectionString), "SQL")
             Return CInt(DS.Tables(0).Rows(0)("HasIt")) = 1
         Catch ex As Exception
