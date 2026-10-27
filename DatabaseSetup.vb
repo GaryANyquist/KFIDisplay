@@ -298,6 +298,7 @@ CREATE TABLE dbo.servers (
     name        nvarchar(200)  NOT NULL,
     pin_hash    nvarchar(200)  NOT NULL,
     active      int            NOT NULL DEFAULT 1,
+    admin       int            NOT NULL DEFAULT 0,
     created_at  nvarchar(200)  NULL,
     updated_at  nvarchar(200)  NULL,
     deleted_at  nvarchar(200)  NULL,
@@ -314,6 +315,9 @@ CREATE TABLE dbo.drivers (
     has_password  int            NOT NULL DEFAULT 0,
     created_at    nvarchar(200)  NULL,
     updated_at    nvarchar(200)  NULL,
+    pay_per_delivery int         NOT NULL DEFAULT 0,
+    pay_per_mile  int            NOT NULL DEFAULT 0,
+    pay_tips      int            NOT NULL DEFAULT 1,
     synced_at     datetime2(3)   NOT NULL DEFAULT SYSUTCDATETIME()
 );"))
         L.Add(New KeyValuePair(Of String, String)("driver_deliveries", "
@@ -426,7 +430,11 @@ CREATE TABLE dbo.coupon_targets (
             New String() {"orders", "server_name", "nvarchar(200) NULL"},
             New String() {"orders", "driver_id", "nvarchar(64) NULL"},
             New String() {"orders", "driver_name", "nvarchar(200) NULL"},
-            New String() {"orders", "delivered_at", "datetime2(3) NULL"}
+            New String() {"orders", "delivered_at", "datetime2(3) NULL"},
+            New String() {"drivers", "pay_per_delivery", "int NOT NULL DEFAULT 0"},
+            New String() {"drivers", "pay_per_mile", "int NOT NULL DEFAULT 0"},
+            New String() {"drivers", "pay_tips", "int NOT NULL DEFAULT 1"},
+            New String() {"servers", "admin", "int NOT NULL DEFAULT 0"}
         }
     End Function
 
