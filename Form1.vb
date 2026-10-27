@@ -431,10 +431,8 @@ Public Class Form1
         If Previous IsNot Nothing Then Previous.Dispose()
     End Sub
 
-    'Double-click the picture: view the menu as the tablet sent it (view only).
-    Private Sub AdPicture_DoubleClick(sender As Object, e As EventArgs) Handles AdPicture.DoubleClick
-        Form2.ShowDialog()
-    End Sub
+    'Double-clicking the picture used to open the menu window (Form2); removed in 2.0.22 (Gary 2026-10-27). The board's
+    'menu is chosen from a register (Settings → Menu layout → Menu board shows).
 
     Private Sub AdPicture_Paint(sender As Object, e As PaintEventArgs) Handles AdPicture.Paint
         'AdPicture.BorderStyle = BorderStyle.None

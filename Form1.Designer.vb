@@ -1695,7 +1695,6 @@ Partial Class Form1
         Me.Controls.Add(Me.CategoryGroupBox2)
         Me.Controls.Add(Me.CategoryGroupBox1)
         Me.Controls.Add(Me.AdPicture)
-        Me.ControlBox = False
         Me.MaximizeBox = False
         Me.MinimizeBox = False
         Me.Name = "Form1"
