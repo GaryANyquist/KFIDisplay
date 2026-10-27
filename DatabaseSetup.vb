@@ -203,6 +203,11 @@ CREATE TABLE dbo.orders (
     delivery_phone   nvarchar(200)  NULL,
     delivery_address nvarchar(1000) NULL,
     delivery_notes   nvarchar(1000) NULL,
+    server_id        nvarchar(64)   NULL,
+    server_name      nvarchar(200)  NULL,
+    driver_id        nvarchar(64)   NULL,
+    driver_name      nvarchar(200)  NULL,
+    delivered_at     datetime2(3)   NULL,
     order_up_at      datetime2(3)   NULL,
     paged_at         datetime2(3)   NULL,
     completed_at     datetime2(3)   NULL,
@@ -285,6 +290,46 @@ CREATE TABLE dbo.menu_items (
     menu_id  nvarchar(64)  NOT NULL,
     item_id  nvarchar(64)  NOT NULL,
     PRIMARY KEY (menu_id, item_id)
+);"))
+        ' Servers who log in to a register with a PIN (register 2.10.0; only its hash), shared like customers.
+        L.Add(New KeyValuePair(Of String, String)("servers", "
+CREATE TABLE dbo.servers (
+    id          nvarchar(64)   NOT NULL PRIMARY KEY,
+    name        nvarchar(200)  NOT NULL,
+    pin_hash    nvarchar(200)  NOT NULL,
+    active      int            NOT NULL DEFAULT 1,
+    created_at  nvarchar(200)  NULL,
+    updated_at  nvarchar(200)  NULL,
+    deleted_at  nvarchar(200)  NULL,
+    synced_at   datetime2(3)   NOT NULL DEFAULT SYSUTCDATETIME()
+);"))
+        ' Delivery drivers as the Wix site keeps them, and who delivered each order (register 2.10.0).
+        L.Add(New KeyValuePair(Of String, String)("drivers", "
+CREATE TABLE dbo.drivers (
+    id            nvarchar(64)   NOT NULL PRIMARY KEY,
+    name          nvarchar(200)  NOT NULL,
+    email         nvarchar(200)  NULL,
+    phone         nvarchar(200)  NULL,
+    active        int            NOT NULL DEFAULT 1,
+    has_password  int            NOT NULL DEFAULT 0,
+    created_at    nvarchar(200)  NULL,
+    updated_at    nvarchar(200)  NULL,
+    synced_at     datetime2(3)   NOT NULL DEFAULT SYSUTCDATETIME()
+);"))
+        L.Add(New KeyValuePair(Of String, String)("driver_deliveries", "
+CREATE TABLE dbo.driver_deliveries (
+    id             nvarchar(64)   NOT NULL PRIMARY KEY,
+    wix_number     nvarchar(200)  NULL,
+    order_id       nvarchar(64)   NULL,
+    driver_id      nvarchar(64)   NOT NULL,
+    driver_name    nvarchar(200)  NULL,
+    delivered_at   datetime2(3)   NULL,
+    customer_name  nvarchar(200)  NULL,
+    address        nvarchar(1000) NULL,
+    total          int            NOT NULL DEFAULT 0,
+    tip            int            NOT NULL DEFAULT 0,
+    miles          float          NULL,
+    synced_at      datetime2(3)   NOT NULL DEFAULT SYSUTCDATETIME()
 );"))
         ' Delivery customers saved on a register (register 2.9.0).
         L.Add(New KeyValuePair(Of String, String)("customers", "
@@ -376,7 +421,12 @@ CREATE TABLE dbo.coupon_targets (
             New String() {"orders", "delivery_phone", "nvarchar(200) NULL"},
             New String() {"orders", "delivery_address", "nvarchar(1000) NULL"},
             New String() {"orders", "delivery_notes", "nvarchar(1000) NULL"},
-            New String() {"customers", "deleted_at", "nvarchar(200) NULL"}
+            New String() {"customers", "deleted_at", "nvarchar(200) NULL"},
+            New String() {"orders", "server_id", "nvarchar(64) NULL"},
+            New String() {"orders", "server_name", "nvarchar(200) NULL"},
+            New String() {"orders", "driver_id", "nvarchar(64) NULL"},
+            New String() {"orders", "driver_name", "nvarchar(200) NULL"},
+            New String() {"orders", "delivered_at", "datetime2(3) NULL"}
         }
     End Function
 
