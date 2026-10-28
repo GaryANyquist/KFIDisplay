@@ -64,8 +64,19 @@ Public Class AnnawareMenu
         End Try
     End Function
 
+    ''' <summary>
+    ''' What went wrong the last time the menu was read from annaware.com, in words for the screen ("" = it worked).
+    ''' The board shows it (2.0.27, Gary 2026-10-28: a wrong key left the board blank with nothing to say why).
+    ''' </summary>
+    Public Shared Problem As String = ""
+    Private Shared FailedAt As DateTime = DateTime.MinValue
+
     ''' <summary>The menu (refreshed at most once a minute); the last one when annaware.com can't be reached.</summary>
     Public Shared Function Catalog() As JObject
+        If CatalogCache Is Nothing AndAlso Problem <> "" AndAlso (DateTime.Now - FailedAt).TotalSeconds < 15 Then
+            'No menu yet and the last try failed moments ago: don't ask again on every slideshow turn.
+            Throw New Exception(Problem)
+        End If
         If CatalogCache Is Nothing OrElse (DateTime.Now - FetchedAt).TotalSeconds >= 60 Then
             Try
                 CatalogCache = Post("{""action"":""catalog""}")
@@ -76,12 +87,31 @@ Public Class AnnawareMenu
                 Catch
                 End Try
                 FetchedAt = DateTime.Now
-            Catch
-                If CatalogCache Is Nothing Then Throw
+                Problem = ""
+            Catch ex As Exception
+                Problem = Explain(ex)
+                FailedAt = DateTime.Now
+                If CatalogCache Is Nothing Then Throw New Exception(Problem, ex)
                 FetchedAt = DateTime.Now 'try again in a minute
             End Try
         End If
         Return CatalogCache
+    End Function
+
+    ''' <summary>A reading failure in words for whoever looks at the board, with what to check.</summary>
+    Private Shared Function Explain(ByVal ex As Exception) As String
+        Dim Key As String = DisplaySettings.AnnawareKey
+        Dim Msg As String = ex.Message
+        If Msg.IndexOf("business key", StringComparison.OrdinalIgnoreCase) >= 0 Then
+            Dim Hint As String = If(Key.StartsWith("crk_", StringComparison.OrdinalIgnoreCase) AndAlso Key.Length > 10,
+                "Check AnnawareKey in C:\KFDisplay\display.ini: it must be the business key from the setup pages' Business tab.",
+                "AnnawareKey in C:\KFDisplay\display.ini must be the business key (crk_ and 8 more characters) from the setup pages' Business tab, not the business code.")
+            Return "annaware.com does not know this menu board's business key. " & Hint
+        End If
+        If TypeOf ex Is WebException Then
+            Return "Can't reach annaware.com (" & Msg & "). Check this PC's internet connection."
+        End If
+        Return Msg
     End Function
 
     ''' <summary>The menu the board shows: the setup pages' choice, else display.ini's Menu= ("" = every menu).</summary>

@@ -343,10 +343,39 @@ Public Class Form1
                 Me.Controls("ItemGroupBox" & (ItemIx).ToString).Visible = False
             Loop
             ErrorLabel.Text = ""
+            'The menu is up; annaware.com may still have failed this time (the last menu read stays on the board).
+            ShowProblem(If(AnnawareMenu.Enabled AndAlso AnnawareMenu.Problem <> "",
+                           "Showing the last menu read. " & AnnawareMenu.Problem, ""))
         Catch ex As Exception
             My.Computer.FileSystem.WriteAllText("c:\KFDisplay\log.txt", Now.ToString & Chr(9) & "Error on menu fill: " & ex.Message & " | " & ex.StackTrace & vbCrLf, True)
             ErrorLabel.Text = "Fill : " & ex.Message
+            ShowProblem("The menu can't be shown. " & If(AnnawareMenu.Enabled AndAlso AnnawareMenu.Problem <> "", AnnawareMenu.Problem, ex.Message))
         End Try
+    End Sub
+
+    Dim ProblemLabel As System.Windows.Forms.Label
+
+    ''' <summary>
+    ''' A big message across the bottom of the board (2.0.27, Gary 2026-10-28): a wrong key or no internet used to leave
+    ''' the board blank, with the reason only in C:\KFDisplay\log.txt. "" hides it.
+    ''' </summary>
+    Private Sub ShowProblem(ByVal Text As String)
+        If ProblemLabel Is Nothing Then
+            If Text = "" Then Exit Sub
+            ProblemLabel = New System.Windows.Forms.Label() With {
+                .Dock = DockStyle.Bottom,
+                .AutoSize = False,
+                .Height = 150,
+                .Padding = New Padding(30, 10, 30, 10),
+                .TextAlign = ContentAlignment.MiddleCenter,
+                .Font = New Font("Segoe UI", 22, FontStyle.Bold),
+                .ForeColor = Color.White,
+                .BackColor = Color.FromArgb(178, 34, 34)}
+            Me.Controls.Add(ProblemLabel)
+        End If
+        If ProblemLabel.Text <> Text Then ProblemLabel.Text = Text
+        ProblemLabel.Visible = Text <> ""
+        If ProblemLabel.Visible Then ProblemLabel.BringToFront()
     End Sub
     Private Sub Form1_Resize(sender As Object, e As EventArgs) Handles Me.Resize
         AdPicture.Left = 10
