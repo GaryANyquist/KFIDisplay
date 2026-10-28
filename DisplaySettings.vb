@@ -11,6 +11,8 @@ Imports System.IO
 '''   SyncAddress=http://SQLPC:8787  the sync service on that PC, which photos are copied from
 '''   DisplayKey=...                   DISPLAY_KEY from that sync service's .env
 '''   Menu=wxm_...                     the Wix menu the board shows (2.0.18; empty = all menus), set in the menu window
+'''   AnnawareKey=crk_...              2.0.25: read the menu straight from annaware.com with this business key (then no
+'''                                    SQL Server, sync service or photo copying is used; see AnnawareMenu.vb)
 '''
 ''' Without the file (or with SqlServer empty) everything is on this PC, as before: the local SQL Server with
 ''' Windows sign-in, and this app sets up the database and starts the services.
@@ -69,6 +71,13 @@ Public Class DisplaySettings
             If A <> "" AndAlso Not A.StartsWith("http", StringComparison.OrdinalIgnoreCase) Then A = "http://" & A
             If A <> "" AndAlso A.IndexOf(":"c, A.IndexOf("//", StringComparison.Ordinal) + 2) < 0 Then A &= ":8787"
             Return A
+        End Get
+    End Property
+
+    ''' <summary>The annaware.com business key (2.0.25), or "" to read the KFDisplay SQL tables as before.</summary>
+    Public Shared ReadOnly Property AnnawareKey As String
+        Get
+            Return Value("AnnawareKey").Trim()
         End Get
     End Property
 

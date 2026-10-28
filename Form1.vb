@@ -44,7 +44,9 @@ Public Class Form1
             MkDir("c:\KFDisplay")
         Catch ex As Exception
         End Try
-        If DisplaySettings.IsRemote Then
+        If AnnawareMenu.Enabled Then
+            'The menu comes from annaware.com (2.0.25): no database, services or photo copying on this PC.
+        ElseIf DisplaySettings.IsRemote Then
             'SQL Server and the services run on the other PC, which sets them up; this one only reads and copies photos.
             PhotoCopier.Start()
         Else
@@ -84,7 +86,7 @@ Public Class Form1
     ''' answers (it may still be starting when the PC boots). Never stops the app; problems go to the log and the red label.
     ''' </summary>
     Private Sub RunDatabaseSetup()
-        If SetupDone OrElse DisplaySettings.IsRemote Then Exit Sub
+        If SetupDone OrElse DisplaySettings.IsRemote OrElse AnnawareMenu.Enabled Then Exit Sub
         Try
             Dim R As SetupResult = DatabaseSetup.EnsureReady(ConnectionString)
             If Not R.Connected Then Exit Sub 'SQL Server isn't answering yet: try again on the next tick
@@ -245,6 +247,12 @@ Public Class Form1
         End Try
     End Function
 
+    ''' <summary>The board rows after AfterSortOrder: from annaware.com (2.0.25) or the KFDisplay SQL tables.</summary>
+    Private Function BoardRows(ByVal AfterSortOrder As Long) As DataSet
+        If AnnawareMenu.Enabled Then Return AnnawareMenu.BoardPage(AfterSortOrder)
+        Return AnnawareData.ReturnRecords(MenuBoardSql(AfterSortOrder), SQLConnection, "SQL")
+    End Function
+
     Private Sub FillMenu()
         SQLConnection = New SqlConnection(ConnectionString)
         Dim CategoryIx As Integer = 0
@@ -255,9 +263,9 @@ Public Class Form1
 
         Try
             'show the category
-            Dim DS As DataSet = AnnawareData.ReturnRecords(MenuBoardSql(LastSortSeq), SQLConnection, "SQL")
+            Dim DS As DataSet = BoardRows(LastSortSeq)
             If DS.Tables(0).Rows.Count = 0 Then
-                DS = AnnawareData.ReturnRecords(MenuBoardSql(0), SQLConnection, "SQL")
+                DS = BoardRows(0)
                 LastSortSeq = 0
             Else
                 CategoryIx = CategoryIx + 1
@@ -402,6 +410,10 @@ Public Class Form1
                 DisclaimerCount = 0
                 ShowPicture("C:\images\disclaimer.jpg", "")
                 Timer2.Interval = 20000
+            ElseIf AnnawareMenu.Enabled Then
+                Dim Photo As Tuple(Of String, String) = AnnawareMenu.RandomPhoto()
+                If Photo IsNot Nothing Then ShowPicture(Photo.Item1, Photo.Item2)
+                Timer2.Interval = 3000
             Else
                 Dim DS As DataSet = AnnawareData.ReturnRecords(
                     "SELECT id, name, image FROM items WHERE show_on_menu_board = 1 AND image IS NOT NULL AND image <> ''" &
@@ -466,8 +478,16 @@ Public Class Form1
 
     Private Sub Price_Paint(sender As Object, e As PaintEventArgs) Handles Price1.Paint, Price2.Paint, Price3.Paint, Price4.Paint, Price5.Paint, Price6.Paint, Price7.Paint, Price8.Paint, Price9.Paint, Price10.Paint, Price11.Paint, Price12.Paint, Price13.Paint, Price14.Paint, Price15.Paint, Price16.Paint, Price17.Paint, Price18.Paint, Price19.Paint, Price20.Paint
         If sender.ForeColor = Color.Gray Then
-            Dim img As Image = Image.FromFile("C:\images\slash.gif")
-            e.Graphics.DrawImage(img, sender.width - 30, 0, 20, 20)
+            'The crossed-out price; a PC set up for annaware.com (2.0.25) may have no C:\images: a plain line then.
+            If File.Exists("C:\images\slash.gif") Then
+                Using img As Image = Image.FromFile("C:\images\slash.gif")
+                    e.Graphics.DrawImage(img, sender.width - 30, 0, 20, 20)
+                End Using
+            Else
+                Using P As New Pen(Color.Red, 2)
+                    e.Graphics.DrawLine(P, 0, CInt(sender.Height / 2), CInt(sender.Width), CInt(sender.Height / 2))
+                End Using
+            End If
         End If
 
     End Sub
