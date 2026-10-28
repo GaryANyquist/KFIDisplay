@@ -16,6 +16,8 @@ Imports Newtonsoft.Json.Linq
 Public Class AnnawareMenu
     Public Const Api As String = "https://www.annaware.com/CashRegister/api.ashx"
     Private Const HideLabel As String = "DontShowOnMenu"
+    'Unticked "On the menu board" on the setup pages (2.0.26): on the registers, not on the board.
+    Private Const BoardHideLabel As String = "DontShowOnMenuBoard"
     Private Const PhotoDir As String = "C:\KFDisplay\photos"
 
     Private Shared CatalogCache As JObject
@@ -124,9 +126,10 @@ Public Class AnnawareMenu
         For Each I As JObject In List(C, "items")
             Items(Str(I, "id")) = I
         Next
-        Dim HideId As String = ""
+        Dim HideId As String = "", BoardHideId As String = ""
         For Each L As JObject In List(C, "labels")
             If Str(L, "name") = HideLabel Then HideId = Str(L, "id")
+            If Str(L, "name") = BoardHideLabel Then BoardHideId = Str(L, "id")
         Next
         Dim Order As New List(Of String)
         For Each M As JObject In List(C, "menus")
@@ -148,6 +151,7 @@ Public Class AnnawareMenu
                 Dim Hidden As Boolean = False
                 For Each L As JToken In If(TryCast(I("labels"), JArray), New JArray())
                     If HideId <> "" AndAlso Str(L, "id") = HideId Then Hidden = True
+                    If BoardHideId <> "" AndAlso Str(L, "id") = BoardHideId Then Hidden = True
                 Next
                 If Hidden Then Continue For
                 Out.Add(New BoardItem With {.Item = I, .Section = Str(S, "name")})
